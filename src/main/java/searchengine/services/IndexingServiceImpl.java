@@ -45,14 +45,18 @@ public class IndexingServiceImpl implements IndexingService{
 
     @Override
     public IndexingResponse stopIndexing() {
-        PageParser.running = false;
-        for (Site site : sites.getSites()) {
 
-        }
-        System.out.println("STOOOOOOOOOOOOOOOOOOOOOOOOOOOOP");
         IndexingResponse indexingResponse = new IndexingResponse();
-        indexingResponse.setResult(true);
+
+        for (Site site : sites.getSites()) {
+            if (!siteDBRepository.findByUrl(site.getUrl()).getStatus().equals(IndexingStatus.INDEXING)) {
+                indexingResponse.setResult(false);
+                indexingResponse.setError("Индексация не запущена");
+            } else {
+                indexingResponse.setResult(true);
+                PageParser.running = false;
+            }
+        }
         return indexingResponse;
     }
-
 }

@@ -21,5 +21,5 @@ indexing-settings:
 #      name: volochek.life
     - url: https://dombulgakova.ru/
       name: dombulgakova.ru
-#    - url: https://nikoartgallery.com/
-#      name: nikoartgallery.com
+    - url: https://nikoartgallery.com/
+      name: nikoartgallery.com

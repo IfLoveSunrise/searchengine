@@ -10,6 +10,9 @@ import searchengine.model.SiteDB;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteDBRepository;
 
+import java.sql.Timestamp;
+import java.util.Date;
+
 @Service
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService{
@@ -22,26 +25,19 @@ public class IndexingServiceImpl implements IndexingService{
         PageParser.running = true;
         for (Site site : sites.getSites()) {
             SiteDB siteDB = siteDBRepository.findByUrl(site.getUrl());
-            System.out.println(siteDB);
-            if (siteDB == null) {
-                siteDB = new SiteDB();
-                siteDB.setName(site.getName());
-                siteDB.setUrl(site.getUrl());
-            } else if (siteDB.getStatus() == IndexingStatus.INDEXING){
-                indexingResponse.setResult(false);
-                indexingResponse.setError("Индексация уже запущена");
-                break;
-            } else {
-                System.out.println(siteDB + "3");
-//                siteDBRepository.delete(siteDB);
+            if (siteDB != null) {
+                siteDBRepository.delete(siteDB);
             }
-
-            System.out.println(siteDB + "4");
+            siteDB = new SiteDB();
+            siteDB.setName(site.getName());
+            siteDB.setUrl(site.getUrl());
+            siteDB.setStatus(IndexingStatus.INDEXING);
+            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            siteDBRepository.save(siteDB);
             SiteParser siteParser = new SiteParser(siteDBRepository, pageRepository, siteDB);
             siteParser.start();
         }
 
-        System.out.println("111111111111111111111111111111111111111111111111111111111111111");
         indexingResponse.setResult(true);
         indexingResponse.setError(null);
         return indexingResponse;
@@ -50,6 +46,9 @@ public class IndexingServiceImpl implements IndexingService{
     @Override
     public IndexingResponse stopIndexing() {
         PageParser.running = false;
+        for (Site site : sites.getSites()) {
+
+        }
         System.out.println("STOOOOOOOOOOOOOOOOOOOOOOOOOOOOP");
         IndexingResponse indexingResponse = new IndexingResponse();
         indexingResponse.setResult(true);

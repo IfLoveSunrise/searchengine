@@ -1,6 +1,5 @@
 package searchengine.services;
 
-import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -8,6 +7,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveTask;
 
+import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -20,12 +20,11 @@ import searchengine.model.SiteDB;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteDBRepository;
 
-public class PageParser extends RecursiveTask<SiteDB> {
+public class PageParser extends RecursiveTask<String> {
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
-    private String url;
-    private SiteDB siteDB;
-    private final Set<String> linkSet = new CopyOnWriteArraySet<>();
+    private final String url;
+    private final SiteDB siteDB;
     public static boolean running = true;
 
     public PageParser(SiteDBRepository siteDBRepository, PageRepository pageRepository, String url, SiteDB siteDB) {
@@ -36,66 +35,66 @@ public class PageParser extends RecursiveTask<SiteDB> {
     }
 
     @Override
-    protected SiteDB compute() {
+    protected String compute() {
+        System.out.println(url);
 
-        if (running) {
-            System.out.println(url);
+        if (!running) stopIndexing();
+        String pageAvailability = pageRepository.findByPathAndSiteDBId(
+                url.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId());
+
+        if (pageAvailability == null && running) {
 
             List<PageParser> pageParserList = new CopyOnWriteArrayList<>();
-            linkSet.add(url);
+            Set<String> linkSet = new CopyOnWriteArraySet<>();
 
-            try {
-                Thread.sleep(500);
-                Connection connection = Jsoup.connect(url)
-                        .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
-                                "Gecko/20070725 Firefox/2.0.0.6")
-                        .referrer("http://www.google.com");
-                Document document = connection.get();
+            for (Element element : getElementsAndSavePage()) {
+                String link = element.absUrl("href");
+                int pointCount = StringUtils.countMatches(link.replace(url, ""), ".");
 
-                Page page = new Page();
-                page.setSite(siteDB);
-                page.setPath(url.replaceFirst(siteDB.getUrl(), "/"));
-                page.setCode(connection.response().statusCode());
-                page.setContent(document.toString());
-                siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-                System.out.println(page);
-                pageRepository.save(page);
-
-                Elements elements = document.select("a[href]");
-
-                for (Element element : elements) {
-                    String link = element.absUrl("href");
-                    int pointCount = StringUtils.countMatches(link.replace(url, ""), ".");
-
-                    if (!link.isEmpty() && link.startsWith(url) && !link.contains("#")
-                            && !linkSet.contains(link) && pointCount == 0) {
-                        linkSet.add(link);
-                        PageParser pageParser = new PageParser(siteDBRepository, pageRepository, link, siteDB);
-                        pageParser.fork();
-                        pageParserList.add(pageParser);
-                    }
+                if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
+                        && running && !link.equals(url) && !linkSet.contains(link)) {
+                    linkSet.add(link);
+                    PageParser pageParser = new PageParser(siteDBRepository, pageRepository, link, siteDB);
+                    pageParser.fork();
+                    pageParserList.add(pageParser);
                 }
-            } catch (InterruptedException e) {
-                running = false;
-                System.out.println("Thread was interrupted, Failed to complete operation!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            } catch (IOException e) {
-                throw new RuntimeException(e);
             }
 
             for (PageParser link : pageParserList) {
-                if (!link.siteDB.getUrl().equals(url)) {
-                    siteDB = link.join();
-                }
+                link.join();
             }
-        } else {
-            siteDB.setLastError("Индексация остановлена пользователем");
-            siteDB.setStatus(IndexingStatus.FAILED);
-            Thread.currentThread().interrupt();
-            ForkJoinPool.commonPool().shutdown();
         }
 
         siteDBRepository.save(siteDB);
+        return url;
+    }
 
-        return siteDB;
+    @SneakyThrows
+    public Elements getElementsAndSavePage () {
+
+        Thread.sleep(500);
+
+        Connection connection = Jsoup.connect(url)
+                .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
+                        "Gecko/20070725 Firefox/2.0.0.6")
+                .referrer("http://www.google.com");
+        Document document = connection.get();
+
+        Page page = new Page();
+        page.setSite(siteDB);
+        page.setPath(url.replaceFirst(siteDB.getUrl(), "/"));
+        page.setCode(connection.response().statusCode());
+        page.setContent(document.toString());
+        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+        pageRepository.save(page);
+
+        return document.select("a[href]");
+    }
+
+    public void stopIndexing() {
+        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+        siteDB.setLastError("Индексация остановлена пользователем");
+        siteDB.setStatus(IndexingStatus.FAILED);
+        ForkJoinPool.commonPool().shutdown();
     }
 }

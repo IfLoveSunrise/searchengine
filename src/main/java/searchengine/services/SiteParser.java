@@ -22,12 +22,7 @@ public class SiteParser extends Thread {
 
     @Override
     public void run() {
-        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-        siteDB.setStatus(IndexingStatus.INDEXING);
-        siteDBRepository.save(siteDB);
         PageParser pageParser = new PageParser( siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
-        siteDB = new ForkJoinPool().invoke(pageParser);
-        System.out.println("lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll");
-
+        new ForkJoinPool().invoke(pageParser);
     }
 }

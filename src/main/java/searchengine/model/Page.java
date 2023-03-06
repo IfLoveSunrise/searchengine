@@ -34,12 +34,12 @@ public class Page {
 
     @Override
     public String toString() {
-        return "Page{" +
-                "id=" + id +
-                ", site=" + site +
-                ", path='" + path + '\'' +
-                ", code=" + code +
-                ", content='"  + '\'' +
+        return "Page{" + System.lineSeparator() +
+                "id=" + id + System.lineSeparator() +
+                ", site=" + site + System.lineSeparator() +
+                ", path='" + path + '\'' + System.lineSeparator() +
+                ", code=" + code + System.lineSeparator() +
+                ", content='"  + '\'' + System.lineSeparator() +
                 '}';
     }
 }

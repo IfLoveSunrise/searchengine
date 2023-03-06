@@ -5,9 +5,7 @@ import searchengine.model.SiteDB;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteDBRepository;
 
-import java.sql.Timestamp;
-import java.util.Date;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.*;
 
 public class SiteParser extends Thread {
     private final SiteDBRepository siteDBRepository;
@@ -23,6 +21,14 @@ public class SiteParser extends Thread {
     @Override
     public void run() {
         PageParser pageParser = new PageParser( siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
-        new ForkJoinPool().invoke(pageParser);
+        try {
+            new ForkJoinPool().submit(pageParser).get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+        if (siteDB.getStatus().equals(IndexingStatus.INDEXING)) {
+            siteDB.setStatus(IndexingStatus.INDEXED);
+            siteDBRepository.save(siteDB);
+        }
     }
 }

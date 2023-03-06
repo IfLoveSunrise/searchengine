@@ -7,7 +7,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveTask;
 
-import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -20,7 +19,7 @@ import searchengine.model.SiteDB;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteDBRepository;
 
-public class PageParser extends RecursiveTask<String> {
+public class PageParser extends RecursiveTask<SiteDB> {
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
     private final String url;
@@ -35,7 +34,7 @@ public class PageParser extends RecursiveTask<String> {
     }
 
     @Override
-    protected String compute() {
+    protected SiteDB compute() {
         System.out.println(url);
 
         if (!running) stopIndexing();
@@ -66,29 +65,33 @@ public class PageParser extends RecursiveTask<String> {
         }
 
         siteDBRepository.save(siteDB);
-        return url;
+        return siteDB;
     }
 
-    @SneakyThrows
     public Elements getElementsAndSavePage () {
 
-        Thread.sleep(500);
+        Document document = null;
+        try {
+            Thread.sleep(500);
 
-        Connection connection = Jsoup.connect(url)
-                .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
-                        "Gecko/20070725 Firefox/2.0.0.6")
-                .referrer("http://www.google.com");
-        Document document = connection.get();
+            Connection connection = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
+                            "Gecko/20070725 Firefox/2.0.0.6")
+                    .referrer("http://www.google.com");
+            document = connection.get();
 
-        Page page = new Page();
-        page.setSite(siteDB);
-        page.setPath(url.replaceFirst(siteDB.getUrl(), "/"));
-        page.setCode(connection.response().statusCode());
-        page.setContent(document.toString());
-        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-        pageRepository.save(page);
+            Page page = new Page();
+            page.setSite(siteDB);
+            page.setPath(url.replaceFirst(siteDB.getUrl(), "/"));
+            page.setCode(connection.response().statusCode());
+            page.setContent(document.toString());
+            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            pageRepository.save(page);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-        return document.select("a[href]");
+        return document != null ? document.select("a[href]") : null;
     }
 
     public void stopIndexing() {

@@ -22,7 +22,7 @@ public class SiteParser extends Thread {
 
     @Override
     public void run() {
-        PageParser pageParser = new PageParser( siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
+        PageParser pageParser = new PageParser(siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
         try {
             new ForkJoinPool().submit(pageParser).get();
         } catch (InterruptedException | ExecutionException e) {
@@ -37,9 +37,5 @@ public class SiteParser extends Thread {
 
     public static int getCountInstances() {
         return countInstances;
-    }
-
-    public static void setCountInstances(int countInstances) {
-        SiteParser.countInstances = countInstances;
     }
 }

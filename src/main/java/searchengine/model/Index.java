@@ -14,7 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name="`index`")
-public class index {
+public class Index {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -4,7 +4,6 @@ import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveTask;
 
 import org.apache.commons.lang3.StringUtils;
@@ -35,21 +34,23 @@ public class PageParser extends RecursiveTask<SiteDB> {
 
     @Override
     protected SiteDB compute() {
-        System.out.println(url);
+        System.out.println(System.lineSeparator().concat(url));
 
         if (!running) stopIndexing();
-        String pageAvailability = pageRepository.findByPathAndSiteDBId(
-                url.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId());
+        if (running && pageRepository.findByPathAndSiteDBId(
+                url.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId()) == null) {
 
-        if (pageAvailability == null && running) {
+            Elements elements = getElementsAndSavePage();
+            if (elements == null) {
+                return siteDB;
+            }
 
             List<PageParser> pageParserList = new CopyOnWriteArrayList<>();
             Set<String> linkSet = new CopyOnWriteArraySet<>();
 
-            for (Element element : getElementsAndSavePage()) {
+            for (Element element : elements) {
                 String link = element.absUrl("href");
                 int pointCount = StringUtils.countMatches(link.replace(url, ""), ".");
-
                 if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
                         && running && !link.equals(url) && !linkSet.contains(link)) {
                     linkSet.add(link);
@@ -63,17 +64,13 @@ public class PageParser extends RecursiveTask<SiteDB> {
                 link.join();
             }
         }
-
-        siteDBRepository.save(siteDB);
         return siteDB;
     }
 
     public Elements getElementsAndSavePage () {
-
         Document document = null;
         try {
             Thread.sleep(500);
-
             Connection connection = Jsoup.connect(url)
                     .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
                             "Gecko/20070725 Firefox/2.0.0.6")
@@ -88,7 +85,7 @@ public class PageParser extends RecursiveTask<SiteDB> {
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
             pageRepository.save(page);
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage().concat(" -> ").concat(url));
         }
 
         return document != null ? document.select("a[href]") : null;
@@ -98,6 +95,6 @@ public class PageParser extends RecursiveTask<SiteDB> {
         siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
         siteDB.setLastError("Индексация остановлена пользователем");
         siteDB.setStatus(IndexingStatus.FAILED);
-        ForkJoinPool.commonPool().shutdown();
+        siteDBRepository.save(siteDB);
     }
 }

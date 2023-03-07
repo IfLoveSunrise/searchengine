@@ -49,6 +49,7 @@ public class IndexingServiceImpl implements IndexingService{
 
     @Override
     public IndexingResponse stopIndexing() {
+        System.out.println("Stooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooop");
         if (SiteParser.getCountInstances() > 0) {
             indexingResponse.setResult(true);
             indexingResponse.setError(null);

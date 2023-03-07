@@ -22,6 +22,12 @@ public class IndexingServiceImpl implements IndexingService{
     private final SitesList sites;
     @Override
     public IndexingResponse startIndexing() {
+        System.out.println("----------  !!!!!!!!!!!!!!!!!!!!!!!!!______------" + SiteParser.getCountInstances());
+        if (SiteParser.getCountInstances() > 0) {
+            indexingResponse.setResult(false);
+            indexingResponse.setError("Индексация уже запущена");
+            return indexingResponse;
+        }
         PageParser.running = true;
         for (Site site : sites.getSites()) {
             SiteDB siteDB = siteDBRepository.findByUrl(site.getUrl());
@@ -37,7 +43,6 @@ public class IndexingServiceImpl implements IndexingService{
             SiteParser siteParser = new SiteParser(siteDBRepository, pageRepository, siteDB);
             siteParser.start();
         }
-
         indexingResponse.setResult(true);
         indexingResponse.setError(null);
         return indexingResponse;
@@ -45,17 +50,12 @@ public class IndexingServiceImpl implements IndexingService{
 
     @Override
     public IndexingResponse stopIndexing() {
-
-        IndexingResponse indexingResponse = new IndexingResponse();
-
-        for (Site site : sites.getSites()) {
-            if (!siteDBRepository.findByUrl(site.getUrl()).getStatus().equals(IndexingStatus.INDEXING)) {
-                indexingResponse.setResult(false);
-                indexingResponse.setError("Индексация не запущена");
-            } else {
-                indexingResponse.setResult(true);
-                PageParser.running = false;
-            }
+        if (SiteParser.getCountInstances() > 0) {
+            indexingResponse.setResult(true);
+            PageParser.running = false;
+        } else {
+            indexingResponse.setResult(false);
+            indexingResponse.setError("Индексация не запущена");
         }
         return indexingResponse;
     }

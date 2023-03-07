@@ -22,7 +22,6 @@ public class IndexingServiceImpl implements IndexingService{
     private final SitesList sites;
     @Override
     public IndexingResponse startIndexing() {
-        System.out.println("----------  !!!!!!!!!!!!!!!!!!!!!!!!!______------" + SiteParser.getCountInstances());
         if (SiteParser.getCountInstances() > 0) {
             indexingResponse.setResult(false);
             indexingResponse.setError("Индексация уже запущена");
@@ -52,6 +51,7 @@ public class IndexingServiceImpl implements IndexingService{
     public IndexingResponse stopIndexing() {
         if (SiteParser.getCountInstances() > 0) {
             indexingResponse.setResult(true);
+            indexingResponse.setError(null);
             PageParser.running = false;
         } else {
             indexingResponse.setResult(false);

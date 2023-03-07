@@ -1,7 +1,5 @@
 package searchengine.services;
 
-import lombok.Getter;
-import searchengine.config.SitesList;
 import searchengine.model.IndexingStatus;
 import searchengine.model.SiteDB;
 import searchengine.repositories.PageRepository;

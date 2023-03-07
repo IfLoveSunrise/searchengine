@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import searchengine.services.IndexingService;
-import searchengine.services.IndexingServiceImpl;
 
 @Controller
 @RequiredArgsConstructor

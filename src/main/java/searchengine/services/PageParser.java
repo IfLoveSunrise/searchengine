@@ -40,23 +40,22 @@ public class PageParser extends RecursiveTask<SiteDB> {
         if (running && pageRepository.findByPathAndSiteDBId(
                 url.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId()) == null) {
 
-            Elements elements = getElementsAndSavePage();
-            if (elements == null) {
-                return siteDB;
-            }
-
             List<PageParser> pageParserList = new CopyOnWriteArrayList<>();
             Set<String> linkSet = new CopyOnWriteArraySet<>();
 
-            for (Element element : elements) {
-                String link = element.absUrl("href");
-                int pointCount = StringUtils.countMatches(link.replace(url, ""), ".");
-                if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
-                        && running && !link.equals(url) && !linkSet.contains(link)) {
-                    linkSet.add(link);
-                    PageParser pageParser = new PageParser(siteDBRepository, pageRepository, link, siteDB);
-                    pageParser.fork();
-                    pageParserList.add(pageParser);
+            Elements elements = getElementsAndSavePage();
+
+            if (elements != null) {
+                for (Element element : elements) {
+                    String link = element.absUrl("href");
+                    int pointCount = StringUtils.countMatches(link.replace(url, ""), ".");
+                    if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
+                            && running && !link.equals(url) && !linkSet.contains(link)) {
+                        linkSet.add(link);
+                        PageParser pageParser = new PageParser(siteDBRepository, pageRepository, link, siteDB);
+                        pageParser.fork();
+                        pageParserList.add(pageParser);
+                    }
                 }
             }
 
@@ -68,6 +67,7 @@ public class PageParser extends RecursiveTask<SiteDB> {
     }
 
     public Elements getElementsAndSavePage () {
+        Page page = new Page();
         Document document = null;
         try {
             Thread.sleep(500);
@@ -77,7 +77,6 @@ public class PageParser extends RecursiveTask<SiteDB> {
                     .referrer("http://www.google.com");
             document = connection.get();
 
-            Page page = new Page();
             page.setSite(siteDB);
             page.setPath(url.replaceFirst(siteDB.getUrl(), "/"));
             page.setCode(connection.response().statusCode());
@@ -85,7 +84,7 @@ public class PageParser extends RecursiveTask<SiteDB> {
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
             pageRepository.save(page);
         } catch (Exception e) {
-            System.out.println(e.getMessage().concat(" -> ").concat(url));
+            System.out.println(String.valueOf(page.getCode()).concat(e.getMessage()).concat(" -> ").concat(url));
         }
 
         return document != null ? document.select("a[href]") : null;

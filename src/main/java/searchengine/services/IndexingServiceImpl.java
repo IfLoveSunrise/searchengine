@@ -10,6 +10,7 @@ import searchengine.model.SiteDB;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteDBRepository;
 
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Date;
 
@@ -49,7 +50,16 @@ public class IndexingServiceImpl implements IndexingService{
 
     @Override
     public IndexingResponse stopIndexing() {
+
         System.out.println("Stooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooop");
+
+        LemmaService lemmaService = new LemmaService();
+        try {
+            lemmaService.getLemmasMap(pageRepository.findById(10).get().getContent());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         if (SiteParser.getCountInstances() > 0) {
             indexingResponse.setResult(true);
             indexingResponse.setError(null);

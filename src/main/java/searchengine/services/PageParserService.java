@@ -18,14 +18,14 @@ import searchengine.model.SiteDB;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteDBRepository;
 
-public class PageParser extends RecursiveTask<SiteDB> {
+public class PageParserService extends RecursiveTask<SiteDB> {
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
     private final String url;
     private final SiteDB siteDB;
     public static boolean running = true;
 
-    public PageParser(SiteDBRepository siteDBRepository, PageRepository pageRepository, String url, SiteDB siteDB) {
+    public PageParserService(SiteDBRepository siteDBRepository, PageRepository pageRepository, String url, SiteDB siteDB) {
         this.siteDBRepository = siteDBRepository;
         this.pageRepository = pageRepository;
         this.url = url;
@@ -40,7 +40,7 @@ public class PageParser extends RecursiveTask<SiteDB> {
         if (running && pageRepository.findByPathAndSiteDBId(
                 url.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId()) == null) {
 
-            List<PageParser> pageParserList = new CopyOnWriteArrayList<>();
+            List<PageParserService> pageParserServiceList = new CopyOnWriteArrayList<>();
             Set<String> linkSet = new CopyOnWriteArraySet<>();
 
             Elements elements = getElementsAndSavePage();
@@ -52,14 +52,14 @@ public class PageParser extends RecursiveTask<SiteDB> {
                     if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
                             && running && !link.equals(url) && !linkSet.contains(link)) {
                         linkSet.add(link);
-                        PageParser pageParser = new PageParser(siteDBRepository, pageRepository, link, siteDB);
-                        pageParser.fork();
-                        pageParserList.add(pageParser);
+                        PageParserService pageParserService = new PageParserService(siteDBRepository, pageRepository, link, siteDB);
+                        pageParserService.fork();
+                        pageParserServiceList.add(pageParserService);
                     }
                 }
             }
 
-            for (PageParser link : pageParserList) {
+            for (PageParserService link : pageParserServiceList) {
                 link.join();
             }
         }

@@ -7,13 +7,13 @@ import searchengine.repositories.SiteDBRepository;
 
 import java.util.concurrent.*;
 
-public class SiteParser extends Thread {
+public class SiteParserService extends Thread {
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
     private final SiteDB siteDB;
     private static int countInstances = 0;
 
-    public SiteParser(SiteDBRepository siteDBRepository, PageRepository pageRepository, SiteDB siteDB) {
+    public SiteParserService(SiteDBRepository siteDBRepository, PageRepository pageRepository, SiteDB siteDB) {
         this.siteDBRepository = siteDBRepository;
         this.pageRepository = pageRepository;
         this.siteDB = siteDB;
@@ -22,9 +22,9 @@ public class SiteParser extends Thread {
 
     @Override
     public void run() {
-        PageParser pageParser = new PageParser(siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
+        PageParserService pageParserService = new PageParserService(siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
         try {
-            new ForkJoinPool().submit(pageParser).get();
+            new ForkJoinPool().submit(pageParserService).get();
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
         }

@@ -21,9 +21,9 @@ public class Lemma {
     @Column(nullable = false)
     private int id;
 
-    @ManyToMany(cascade = CascadeType.MERGE)
+    @ManyToOne(cascade = CascadeType.MERGE)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private List<SiteDB> site;
+    private SiteDB site;
 
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
     private String lemma;

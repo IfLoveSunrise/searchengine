@@ -17,7 +17,7 @@ public class LemmaService {
         HashMap<String, Integer> lemmasMap = new HashMap<>();
         LuceneMorphology luceneMorph = new RussianLuceneMorphology();
 
-        String[] words = text.replaceAll("[^А-я]+", " ").toLowerCase(Locale.ROOT).split("\\s+");
+        String[] words = text.replaceAll("[^А-яЁё]+", " ").toLowerCase(Locale.ROOT).split("\\s+");
 
         for (String word : words) {
             if (word.length() > 1 ) {

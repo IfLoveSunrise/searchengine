@@ -7,7 +7,6 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
-import java.util.List;
 
 @Data
 @Entity
@@ -21,13 +20,13 @@ public class Index {
     @Column(nullable = false)
     private int id;
 
-    @ManyToMany(cascade = CascadeType.MERGE)
+    @ManyToOne(cascade = CascadeType.MERGE)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private List<Page> page;
+    private Page page;
 
-    @ManyToMany(cascade = CascadeType.MERGE)
+    @ManyToOne(cascade = CascadeType.MERGE)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private List<Lemma> lemma;
+    private Lemma lemma;
 
     @Column(name = "`rank`", columnDefinition = "FLOAT", nullable = false)
     private float rank;

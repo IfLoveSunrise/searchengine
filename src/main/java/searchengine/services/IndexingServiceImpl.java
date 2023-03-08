@@ -7,10 +7,11 @@ import searchengine.config.SitesList;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.IndexingStatus;
 import searchengine.model.SiteDB;
+import searchengine.repositories.IndexRepository;
+import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteDBRepository;
 
-import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Date;
 
@@ -19,16 +20,18 @@ import java.util.Date;
 public class IndexingServiceImpl implements IndexingService{
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
+    private final IndexRepository indexRepository;
+    private final LemmaRepository lemmaRepository;
     private final IndexingResponse indexingResponse = new IndexingResponse();
     private final SitesList sites;
     @Override
     public IndexingResponse startIndexing() {
-        if (SiteParser.getCountInstances() > 0) {
+        if (SiteParserService.getCountInstances() > 0) {
             indexingResponse.setResult(false);
             indexingResponse.setError("Индексация уже запущена");
             return indexingResponse;
         }
-        PageParser.running = true;
+        PageParserService.running = true;
         for (Site site : sites.getSites()) {
             SiteDB siteDB = siteDBRepository.findByUrl(site.getUrl());
             if (siteDB != null) {
@@ -40,8 +43,8 @@ public class IndexingServiceImpl implements IndexingService{
             siteDB.setStatus(IndexingStatus.INDEXING);
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
             siteDBRepository.save(siteDB);
-            SiteParser siteParser = new SiteParser(siteDBRepository, pageRepository, siteDB);
-            siteParser.start();
+            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository, siteDB);
+            siteParserService.start();
         }
         indexingResponse.setResult(true);
         indexingResponse.setError(null);
@@ -51,23 +54,23 @@ public class IndexingServiceImpl implements IndexingService{
     @Override
     public IndexingResponse stopIndexing() {
 
-        System.out.println("Stooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooop");
-
-        LemmaService lemmaService = new LemmaService();
-        try {
-            lemmaService.getLemmasMap(pageRepository.findById(10).get().getContent());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        if (SiteParser.getCountInstances() > 0) {
+        if (SiteParserService.getCountInstances() > 0) {
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
-            PageParser.running = false;
+            PageParserService.running = false;
         } else {
             indexingResponse.setResult(false);
             indexingResponse.setError("Индексация не запущена");
         }
+        return indexingResponse;
+    }
+
+    @Override
+    public IndexingResponse indexPage(String url) {
+        System.out.println(url);
+
+        indexingResponse.setResult(false);
+        indexingResponse.setError(null);
         return indexingResponse;
     }
 }

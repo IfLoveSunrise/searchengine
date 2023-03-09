@@ -32,7 +32,7 @@ public class ApiController {
     }
 
     @PostMapping("/indexPage")
-    public ResponseEntity<IndexingResponse> indexPage(@RequestParam(name="url") String url) {
-        return ResponseEntity.ok(indexingService.indexPage(url));
+    public ResponseEntity<IndexingResponse> indexPage(@RequestParam(name="url") String path) {
+        return ResponseEntity.ok(indexingService.indexPage(path));
     }
 }

@@ -30,10 +30,6 @@ public class LemmaService {
                 }
             }
         }
-        for (String lemma : lemmasMap.keySet()) {
-            System.out.println(lemma + " - " + lemmasMap.get(lemma));
-        }
-
         return lemmasMap;
     }
 }

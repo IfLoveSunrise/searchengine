@@ -22,9 +22,9 @@ public class SiteParserService extends Thread {
 
     @Override
     public void run() {
-        PageParserService pageParserService = new PageParserService(siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
+        PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
         try {
-            new ForkJoinPool().submit(pageParserService).get();
+            new ForkJoinPool().submit(pagesParserService).get();
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
         }

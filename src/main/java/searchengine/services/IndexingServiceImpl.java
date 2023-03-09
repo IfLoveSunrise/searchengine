@@ -121,13 +121,10 @@ public class IndexingServiceImpl implements IndexingService{
             throw new RuntimeException(e);
         }
 
-
-
-        Page page = pageRepository.findByPathAndSiteDBId(path, siteDB.getId());
-        if (page != null) {
-            pageRepository.delete(page);
+        if (pageRepository.findByPathAndSiteDBId(path, siteDB.getId()) != null) {
+//            pageRepository.delete(page);
         }
-        page = new Page();
+        Page page = new Page();
         page.setSite(siteDB);
         page.setPath(path.replaceFirst(siteDB.getUrl(), "/"));
         page.setCode(connection.response().statusCode());

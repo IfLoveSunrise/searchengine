@@ -34,11 +34,10 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
 
     @Override
     protected SiteDB compute() {
-        System.out.println(System.lineSeparator().concat(url));
-
+        System.out.println(url);
         if (!running) stopIndexing();
-        if (running && pageRepository.findByPathAndSiteDBId(
-                url.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId()) == null) {
+        String path = url.replaceFirst(siteDB.getUrl(), "/");
+        if (running && pageRepository.findByPathAndSiteDBId(path, siteDB.getId()) == null) {
 
             List<PagesParserService> pagesParserServiceList = new CopyOnWriteArrayList<>();
             Set<String> linkSet = new CopyOnWriteArraySet<>();

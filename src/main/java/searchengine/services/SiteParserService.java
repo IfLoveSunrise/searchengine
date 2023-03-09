@@ -1,5 +1,6 @@
 package searchengine.services;
 
+import lombok.SneakyThrows;
 import searchengine.model.IndexingStatus;
 import searchengine.model.SiteDB;
 import searchengine.repositories.PageRepository;
@@ -20,14 +21,14 @@ public class SiteParserService extends Thread {
         countInstances++;
     }
 
+    @SneakyThrows
     @Override
     public void run() {
         PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
-        try {
-            new ForkJoinPool().submit(pagesParserService).get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-        }
+
+
+        new ForkJoinPool().submit(pagesParserService).get();
+
         countInstances--;
         if (siteDB.getStatus().equals(IndexingStatus.INDEXING)) {
             siteDB.setStatus(IndexingStatus.INDEXED);

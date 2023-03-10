@@ -35,17 +35,19 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
     @Override
     protected SiteDB compute() {
         System.out.println(url);
+
         if (!running) stopIndexing();
+
         String path = url.replaceFirst(siteDB.getUrl(), "/");
         if (running && pageRepository.findByPathAndSiteDBId(path, siteDB.getId()) == null) {
 
             List<PagesParserService> pagesParserServiceList = new CopyOnWriteArrayList<>();
             Set<String> linkSet = new CopyOnWriteArraySet<>();
 
-            Elements elements = getElementsAndSavePage();
+            Document document = getJsoupDocumentAndSavePage(url, siteDB);
 
-            if (elements != null) {
-                for (Element element : elements) {
+            if (document != null) {
+                for (Element element : document.select("a[href]")) {
                     String link = element.absUrl("href");
                     int pointCount = StringUtils.countMatches(link.replace(url, ""), ".");
                     if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
@@ -65,11 +67,11 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
         return siteDB;
     }
 
-    public Elements getElementsAndSavePage () {
+    public Document getJsoupDocumentAndSavePage (String url, SiteDB siteDB) {
         Page page = new Page();
         Document document = null;
         try {
-            Thread.sleep(500);
+            Thread.sleep(1000);
             Connection connection = Jsoup.connect(url)
                     .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
                             "Gecko/20070725 Firefox/2.0.0.6")
@@ -86,7 +88,7 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
             System.out.println(String.valueOf(page.getCode()).concat(e.getMessage()).concat(" -> ").concat(url));
         }
 
-        return document != null ? document.select("a[href]") : null;
+        return document;
     }
 
     public void stopIndexing() {

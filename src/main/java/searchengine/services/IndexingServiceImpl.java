@@ -39,17 +39,13 @@ public class IndexingServiceImpl implements IndexingService{
         }
         PagesParserService.running = true;
         for (Site site : sites.getSites()) {
+            SiteParserService.incrementCountInstances();
             SiteDB siteDB = siteDBRepository.findByUrl(site.getUrl());
             if (siteDB != null) {
                 siteDBRepository.delete(siteDB);
             }
-            siteDB = new SiteDB();
-            siteDB.setName(site.getName());
-            siteDB.setUrl(site.getUrl());
-            siteDB.setStatus(IndexingStatus.INDEXING);
-            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            siteDBRepository.save(siteDB);
-            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository, siteDB);
+            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository);
+            siteParserService.createSiteDB(site.getName(), site.getUrl());
             siteParserService.start();
         }
         indexingResponse.setResult(true);
@@ -73,6 +69,8 @@ public class IndexingServiceImpl implements IndexingService{
 
     @Override
     public IndexingResponse indexPage(String path) {
+        SiteParserService.incrementCountInstances();
+
         String url;
         Matcher matcher = Pattern.compile("(.+//[^/]+/).+").matcher(path);
         if (matcher.find()) {
@@ -101,15 +99,9 @@ public class IndexingServiceImpl implements IndexingService{
 
         SiteDB siteDB = siteDBRepository.findByUrl(url);
         if (siteDB == null) {
-            siteDB = new SiteDB();
-            siteDB.setName(siteName);
-            siteDB.setUrl(url);
-            siteDB.setStatus(IndexingStatus.INDEXING);
-            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository);
+            siteDB = siteParserService.createSiteDB(siteName, url);
         }
-
-
-
         Connection connection = Jsoup.connect(url)
                 .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
                         "Gecko/20070725 Firefox/2.0.0.6")
@@ -122,7 +114,7 @@ public class IndexingServiceImpl implements IndexingService{
         }
 
         if (pageRepository.findByPathAndSiteDBId(path, siteDB.getId()) != null) {
-//            pageRepository.delete(page);
+            pageRepository.deleteByPathAndSiteId(path, siteDB.getId());
         }
         Page page = new Page();
         page.setSite(siteDB);
@@ -154,6 +146,7 @@ public class IndexingServiceImpl implements IndexingService{
             indexRepository.save(index);
         }
 
+        SiteParserService.decrementCountInstances();
         indexingResponse.setResult(true);
         indexingResponse.setError(null);
         return indexingResponse;

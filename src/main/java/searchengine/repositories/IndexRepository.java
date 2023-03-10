@@ -5,8 +5,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import searchengine.model.Index;
 
+import java.util.List;
+
 @Repository
 public interface IndexRepository extends JpaRepository<Index, Integer> {
-    @Query(value = "DELETE FROM `index` WHERE page_id = :pageId", nativeQuery = true)
-    void deleteAllByPageId(int pageId);
+    @Query(value = "SELECT * FROM `index` WHERE page_id = :pageId", nativeQuery = true)
+    List<Index> getIndexListByPageId(int pageId);
 }

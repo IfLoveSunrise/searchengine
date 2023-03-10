@@ -27,8 +27,12 @@ public class SiteParserService extends Thread {
 
         try {
             new ForkJoinPool().submit(pagesParserService).get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            e.printStackTrace();
+            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            siteDB.setLastError(e.getMessage());
+            siteDB.setStatus(IndexingStatus.FAILED);
+            siteDBRepository.save(siteDB);
         }
 
         if (siteDB.getStatus().equals(IndexingStatus.INDEXING)) {
@@ -46,7 +50,6 @@ public class SiteParserService extends Thread {
         siteDB.setStatus(IndexingStatus.INDEXING);
         siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
         siteDBRepository.save(siteDB);
-
         return siteDB;
     }
 

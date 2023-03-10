@@ -11,7 +11,6 @@ import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import searchengine.model.IndexingStatus;
 import searchengine.model.Page;
 import searchengine.model.SiteDB;
@@ -23,6 +22,7 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
     private final PageRepository pageRepository;
     private final String url;
     private final SiteDB siteDB;
+    private Page page;
     public static boolean running = true;
 
     public PagesParserService(SiteDBRepository siteDBRepository, PageRepository pageRepository, String url, SiteDB siteDB) {
@@ -44,7 +44,7 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
             List<PagesParserService> pagesParserServiceList = new CopyOnWriteArrayList<>();
             Set<String> linkSet = new CopyOnWriteArraySet<>();
 
-            Document document = getJsoupDocumentAndSavePage(url, siteDB);
+            Document document = getJsoupDocumentAndSavePage();
 
             if (document != null) {
                 for (Element element : document.select("a[href]")) {
@@ -67,9 +67,9 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
         return siteDB;
     }
 
-    public Document getJsoupDocumentAndSavePage (String url, SiteDB siteDB) {
-        Page page = new Page();
-        Document document = null;
+    public Document getJsoupDocumentAndSavePage () {
+        page = new Page();
+        Document document;
         try {
             Thread.sleep(1000);
             Connection connection = Jsoup.connect(url)
@@ -85,10 +85,15 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
             pageRepository.save(page);
         } catch (Exception e) {
-            System.out.println(String.valueOf(page.getCode()).concat(e.getMessage()).concat(" -> ").concat(url));
+            e.printStackTrace();
+            document = null;
         }
 
         return document;
+    }
+
+    public Page getPage() {
+        return page;
     }
 
     public void stopIndexing() {

@@ -1,8 +1,6 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
@@ -16,8 +14,9 @@ import searchengine.repositories.SiteDBRepository;
 
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,7 +71,7 @@ public class IndexingServiceImpl implements IndexingService{
         SiteParserService.incrementCountInstances();
 
         String url;
-        Matcher matcher = Pattern.compile("(.+//[^/]+/).+").matcher(path);
+        Matcher matcher = Pattern.compile("(.+//[^/]+/).*").matcher(path);
         if (matcher.find()) {
             url = matcher.group(1);
         } else {
@@ -97,55 +96,45 @@ public class IndexingServiceImpl implements IndexingService{
             return indexingResponse;
         }
 
+
+
         SiteDB siteDB = siteDBRepository.findByUrl(url);
+        List<Lemma> oldLemmaList = new ArrayList<>();
+        List<Index> oldIndexList = new ArrayList<>();
         if (siteDB == null) {
             SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository);
             siteDB = siteParserService.createSiteDB(siteName, url);
+        } else {
+            oldLemmaList = lemmaRepository.getLemmaListSiteID(siteDB.getId());
+            siteDB.setStatus(IndexingStatus.INDEXING);
+            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            siteDBRepository.save(siteDB);
         }
-        Connection connection = Jsoup.connect(url)
-                .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
-                        "Gecko/20070725 Firefox/2.0.0.6")
-                .referrer("http://www.google.com");
-        Document document;
+
+        Page page = pageRepository.findByPathAndSiteDBId(path.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId());
+        if (page != null) {
+            oldIndexList = indexRepository.getIndexListByPageId(page.getId());
+            pageRepository.delete(page);
+        }
+
+        PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository, path, siteDB);
+        Document document = null;
+        document = pagesParserService.getJsoupDocumentAndSavePage();
+
+        System.out.println(page);
+
+        LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
+
         try {
-            document = connection.get();
+            lemmaService.lemmaSave(lemmaService.getLemmasMap(document.toString()), siteDB, pagesParserService.getPage());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
-        if (pageRepository.findByPathAndSiteDBId(path, siteDB.getId()) != null) {
-            pageRepository.deleteByPathAndSiteId(path, siteDB.getId());
-        }
-        Page page = new Page();
-        page.setSite(siteDB);
-        page.setPath(path.replaceFirst(siteDB.getUrl(), "/"));
-        page.setCode(connection.response().statusCode());
-        page.setContent(document.toString());
+
+        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+        siteDB.setStatus(IndexingStatus.INDEXED);
         siteDBRepository.save(siteDB);
-        pageRepository.save(page);
-
-        LemmaService lemmaService = new LemmaService();
-        HashMap<String, Integer> lemmaMap;
-        try {
-            lemmaMap = lemmaService.getLemmasMap(document.toString());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        for (String lemmaString : lemmaMap.keySet()) {
-            Lemma lemma = new Lemma();
-            lemma.setSite(siteDB);
-            lemma.setLemma(lemmaString);
-            lemma.setFrequency(1);
-            lemmaRepository.save(lemma);
-
-            Index index = new Index();
-            index.setPage(page);
-            index.setLemma(lemma);
-            index.setRank(lemmaMap.get(lemmaString));
-            indexRepository.save(index);
-        }
-
         SiteParserService.decrementCountInstances();
         indexingResponse.setResult(true);
         indexingResponse.setError(null);

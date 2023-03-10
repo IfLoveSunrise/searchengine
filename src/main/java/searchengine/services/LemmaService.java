@@ -4,8 +4,15 @@ import lombok.RequiredArgsConstructor;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.springframework.stereotype.Service;
+import searchengine.model.Index;
+import searchengine.model.Lemma;
+import searchengine.model.Page;
+import searchengine.model.SiteDB;
+import searchengine.repositories.IndexRepository;
+import searchengine.repositories.LemmaRepository;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -13,6 +20,8 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class LemmaService {
+    private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
     public HashMap<String, Integer> getLemmasMap(String text) throws IOException {
         HashMap<String, Integer> lemmasMap = new HashMap<>();
         LuceneMorphology luceneMorph = new RussianLuceneMorphology();
@@ -32,4 +41,33 @@ public class LemmaService {
         }
         return lemmasMap;
     }
+
+    public void lemmaSave(HashMap<String, Integer> lemmaMap, SiteDB siteDB, Page page) {
+        List<Lemma> lemmaList = new ArrayList<>();
+        List<Index> indexList = new ArrayList<>();
+
+        for (String lemmaString : lemmaMap.keySet()) {
+            Lemma lemma = lemmaRepository.getLemmaBySiteID(lemmaString, siteDB.getId());
+            if (lemma == null) {
+                lemma = new Lemma();
+                lemma.setSite(siteDB);
+                lemma.setLemma(lemmaString);
+                lemma.setFrequency(1);
+            } else {
+                lemma.setFrequency(lemma.getFrequency() + 1);
+            }
+            lemmaList.add(lemma);
+
+            Index index = new Index();
+            index.setPage(page);
+            index.setLemma(lemma);
+            index.setRank(lemmaMap.get(lemmaString));
+            indexList.add(index);
+        }
+
+        lemmaRepository.saveAll(lemmaList);
+        indexRepository.saveAll(indexList);
+    }
+
+
 }

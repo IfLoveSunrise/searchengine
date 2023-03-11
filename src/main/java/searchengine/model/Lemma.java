@@ -1,5 +1,4 @@
 package searchengine.model;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,7 +6,6 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
-import java.util.List;
 
 @Data
 @Entity
@@ -19,8 +17,8 @@ public class Lemma {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @ManyToOne
-    @JoinColumn(name = "site_id", referencedColumnName = "id", nullable = false)
+
+    @ManyToOne(cascade = CascadeType.MERGE)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private SiteDB site;
 
@@ -29,9 +27,6 @@ public class Lemma {
 
     @Column(nullable = false)
     private int frequency;
-
-    @OneToMany(mappedBy = "lemma", cascade = CascadeType.MERGE)
-    private List<Index> indexList;
 
     @Override
     public String toString() {

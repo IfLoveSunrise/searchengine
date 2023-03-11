@@ -84,10 +84,10 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
 
     public Document getJsoupDocumentAndSavePage() {
         Document document;
-        Connection connection = Jsoup.connect(url)
-                .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
-                        "Gecko/20070725 Firefox/2.0.0.6")
-                .referrer("http://www.google.com");
+        Connection connection = Jsoup.connect(url);
+//                .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
+//                        "Gecko/20070725 Firefox/2.0.0.6")
+//                .referrer("http://www.google.com");
         try {
             Thread.sleep(1000);
             document = connection.get();

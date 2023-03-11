@@ -27,11 +27,12 @@ public class LemmaService {
         HashMap<String, Integer> lemmasMap = new HashMap<>();
         LuceneMorphology luceneMorph = new RussianLuceneMorphology();
 
-        String[] words = text.replaceAll("[^А-яЁё]+", " ").trim().toLowerCase(Locale.ROOT).split("\\s+");
+        String[] words = text.replaceAll("[^А-яЁё]+", " ").trim()
+                .toLowerCase(Locale.ROOT).split("\\s+");
 
         for (String word : words) {
             word = word.replaceAll("ё", "е");
-            if (word.length() > 1 ) {
+            if (word.length() > 1) {
                 List<String> wordBaseForms = luceneMorph.getMorphInfo(word);
                 for (String wordBaseForm : wordBaseForms) {
                     if (!wordBaseForm.matches(".+[А-Я]$")) {
@@ -62,15 +63,13 @@ public class LemmaService {
                 index.setLemma(lemma);
                 index.setRank(lemmaMap.get(lemmaString));
                 indexList.add(index);
-
             } else {
                 lemma.setFrequency(lemma.getFrequency() + 1);
-                lemmaRepository.save(lemma);
+                lemmaList.add(lemma);
             }
         }
 
-        lemmaRepository.saveAll(lemmaList);
-        indexRepository.saveAll(indexList);
+        lemmaRepository.saveAllAndFlush(lemmaList);
+        indexRepository.saveAllAndFlush(indexList);
     }
-
 }

@@ -20,13 +20,14 @@ import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
-public class IndexingServiceImpl implements IndexingService{
+public class IndexingServiceImpl implements IndexingService {
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final IndexingResponse indexingResponse = new IndexingResponse();
     private final SitesList sites;
+
     @Override
     public IndexingResponse startIndexing() {
         if (SiteParserService.getCountInstances() > 0) {

@@ -39,7 +39,7 @@ public class Page {
                 ", site=" + site + System.lineSeparator() +
                 ", path='" + path + '\'' + System.lineSeparator() +
                 ", code=" + code + System.lineSeparator() +
-                ", content='"  + content +'\'' + System.lineSeparator() +
+                ", content='" +'\'' + System.lineSeparator() +
                 '}';
     }
 }

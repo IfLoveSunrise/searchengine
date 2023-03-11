@@ -9,8 +9,4 @@ import searchengine.model.Page;
 public interface PageRepository extends JpaRepository<Page, Integer> {
     @Query(value = "SELECT * FROM page WHERE path = :path AND site_id = :idSiteDB", nativeQuery = true)
     Page findByPathAndSiteDBId(String path, int idSiteDB);
-
-    @Query(value = "DELETE FROM page WHERE path = :path AND site_id = :idSiteDB", nativeQuery = true)
-    void deleteByPathAndSiteId(String path, int idSiteDB);
-
 }

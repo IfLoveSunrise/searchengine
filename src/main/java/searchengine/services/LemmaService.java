@@ -29,6 +29,7 @@ public class LemmaService {
         String[] words = text.replaceAll("[^А-яЁё]+", " ").toLowerCase(Locale.ROOT).split("\\s+");
 
         for (String word : words) {
+            word = word.replaceAll("ё", "е");
             if (word.length() > 1 ) {
                 List<String> wordBaseForms = luceneMorph.getMorphInfo(word);
                 for (String wordBaseForm : wordBaseForms) {
@@ -42,7 +43,7 @@ public class LemmaService {
         return lemmasMap;
     }
 
-    public void lemmaSave(HashMap<String, Integer> lemmaMap, SiteDB siteDB, Page page) {
+    public void lemmaAndIndexSave(HashMap<String, Integer> lemmaMap, SiteDB siteDB, Page page) {
         List<Lemma> lemmaList = new ArrayList<>();
         List<Index> indexList = new ArrayList<>();
 
@@ -53,10 +54,10 @@ public class LemmaService {
                 lemma.setSite(siteDB);
                 lemma.setLemma(lemmaString);
                 lemma.setFrequency(1);
+                lemmaList.add(lemma);
             } else {
                 lemma.setFrequency(lemma.getFrequency() + 1);
             }
-            lemmaList.add(lemma);
 
             Index index = new Index();
             index.setPage(page);

@@ -1,6 +1,5 @@
 package searchengine.services;
 
-import lombok.SneakyThrows;
 import searchengine.model.IndexingStatus;
 import searchengine.model.SiteDB;
 import searchengine.repositories.PageRepository;

@@ -14,9 +14,7 @@ import searchengine.repositories.SiteDBRepository;
 
 import java.io.IOException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -96,16 +94,11 @@ public class IndexingServiceImpl implements IndexingService{
             return indexingResponse;
         }
 
-
-
         SiteDB siteDB = siteDBRepository.findByUrl(url);
-        List<Lemma> oldLemmaList = new ArrayList<>();
-        List<Index> oldIndexList = new ArrayList<>();
         if (siteDB == null) {
             SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository);
             siteDB = siteParserService.createSiteDB(siteName, url);
         } else {
-            oldLemmaList = lemmaRepository.getLemmaListSiteID(siteDB.getId());
             siteDB.setStatus(IndexingStatus.INDEXING);
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
             siteDBRepository.save(siteDB);
@@ -113,24 +106,18 @@ public class IndexingServiceImpl implements IndexingService{
 
         Page page = pageRepository.findByPathAndSiteDBId(path.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId());
         if (page != null) {
-            oldIndexList = indexRepository.getIndexListByPageId(page.getId());
             pageRepository.delete(page);
         }
 
         PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository, path, siteDB);
-        Document document = null;
-        document = pagesParserService.getJsoupDocumentAndSavePage();
-
-        System.out.println(page);
+        Document document = pagesParserService.getJsoupDocumentAndSavePage();
 
         LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
-
         try {
-            lemmaService.lemmaSave(lemmaService.getLemmasMap(document.toString()), siteDB, pagesParserService.getPage());
+            lemmaService.lemmaAndIndexSave(lemmaService.getLemmasMap(document.toString()), siteDB, pagesParserService.getPage());
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
-
 
         siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
         siteDB.setStatus(IndexingStatus.INDEXED);

@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
+import java.util.List;
 
 @Data
 @Entity
@@ -32,6 +33,12 @@ public class SiteDB {
 
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
     private String name;
+
+    @OneToMany(mappedBy = "site", cascade = CascadeType.MERGE)
+    private List<Page> pageList;
+
+    @OneToMany(mappedBy = "site", cascade = CascadeType.MERGE)
+    private List<Lemma> lemmaList;
 
     @Override
     public String toString() {

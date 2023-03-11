@@ -22,11 +22,12 @@ import java.util.Locale;
 public class LemmaService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
+
     public HashMap<String, Integer> getLemmasMap(String text) throws IOException {
         HashMap<String, Integer> lemmasMap = new HashMap<>();
         LuceneMorphology luceneMorph = new RussianLuceneMorphology();
 
-        String[] words = text.replaceAll("[^А-яЁё]+", " ").toLowerCase(Locale.ROOT).split("\\s+");
+        String[] words = text.replaceAll("[^А-яЁё]+", " ").trim().toLowerCase(Locale.ROOT).split("\\s+");
 
         for (String word : words) {
             word = word.replaceAll("ё", "е");
@@ -55,20 +56,21 @@ public class LemmaService {
                 lemma.setLemma(lemmaString);
                 lemma.setFrequency(1);
                 lemmaList.add(lemma);
+
+                Index index = new Index();
+                index.setPage(page);
+                index.setLemma(lemma);
+                index.setRank(lemmaMap.get(lemmaString));
+                indexList.add(index);
+
             } else {
                 lemma.setFrequency(lemma.getFrequency() + 1);
+                lemmaRepository.save(lemma);
             }
-
-            Index index = new Index();
-            index.setPage(page);
-            index.setLemma(lemma);
-            index.setRank(lemmaMap.get(lemmaString));
-            indexList.add(index);
         }
 
         lemmaRepository.saveAll(lemmaList);
         indexRepository.saveAll(indexList);
     }
-
 
 }

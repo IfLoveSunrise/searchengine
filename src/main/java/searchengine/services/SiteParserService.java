@@ -1,7 +1,11 @@
 package searchengine.services;
 
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 import searchengine.model.IndexingStatus;
 import searchengine.model.SiteDB;
+import searchengine.repositories.IndexRepository;
+import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteDBRepository;
 
@@ -9,20 +13,20 @@ import java.sql.Timestamp;
 import java.util.Date;
 import java.util.concurrent.*;
 
+@Service
+@RequiredArgsConstructor
 public class SiteParserService extends Thread {
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
     private SiteDB siteDB;
     private static int countInstances = 0;
 
-    public SiteParserService(SiteDBRepository siteDBRepository, PageRepository pageRepository) {
-        this.siteDBRepository = siteDBRepository;
-        this.pageRepository = pageRepository;
-    }
-
     @Override
     public void run() {
-        PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository, siteDB.getUrl(), siteDB);
+        PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository,
+                lemmaRepository, indexRepository, siteDB.getUrl(), siteDB);
 
         try {
             new ForkJoinPool().submit(pagesParserService).get();
@@ -31,13 +35,12 @@ public class SiteParserService extends Thread {
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
             siteDB.setLastError(e.getMessage());
             siteDB.setStatus(IndexingStatus.FAILED);
-            siteDBRepository.save(siteDB);
         }
 
         if (siteDB.getStatus().equals(IndexingStatus.INDEXING)) {
             siteDB.setStatus(IndexingStatus.INDEXED);
-            siteDBRepository.save(siteDB);
         }
+        siteDBRepository.save(siteDB);
 
         decrementCountInstances();
     }

@@ -23,14 +23,14 @@ import java.util.regex.Pattern;
 public class IndexingServiceImpl implements IndexingService{
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
-    private final IndexRepository indexRepository;
     private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
     private final IndexingResponse indexingResponse = new IndexingResponse();
     private final SitesList sites;
     @Override
     public IndexingResponse startIndexing() {
         if (SiteParserService.getCountInstances() > 0) {
-            indexingResponse.setResult(false);
+            indexingResponse.setResult(true);
             indexingResponse.setError("Индексация уже запущена");
             return indexingResponse;
         }
@@ -41,7 +41,8 @@ public class IndexingServiceImpl implements IndexingService{
             if (siteDB != null) {
                 siteDBRepository.delete(siteDB);
             }
-            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository);
+            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository,
+                    lemmaRepository, indexRepository);
             siteParserService.createSiteDB(site.getName(), site.getUrl());
             siteParserService.start();
         }
@@ -58,7 +59,7 @@ public class IndexingServiceImpl implements IndexingService{
             indexingResponse.setError(null);
             PagesParserService.running = false;
         } else {
-            indexingResponse.setResult(false);
+            indexingResponse.setResult(true);
             indexingResponse.setError("Индексация не запущена");
         }
         return indexingResponse;
@@ -67,6 +68,7 @@ public class IndexingServiceImpl implements IndexingService{
     @Override
     public IndexingResponse indexPage(String path) {
         SiteParserService.incrementCountInstances();
+        LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
 
         String url;
         Matcher matcher = Pattern.compile("(.+//[^/]+/).*").matcher(path);
@@ -96,7 +98,8 @@ public class IndexingServiceImpl implements IndexingService{
 
         SiteDB siteDB = siteDBRepository.findByUrl(url);
         if (siteDB == null) {
-            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository);
+            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository,
+                    lemmaRepository, indexRepository);
             siteDB = siteParserService.createSiteDB(siteName, url);
         } else {
             siteDB.setStatus(IndexingStatus.INDEXING);
@@ -104,19 +107,28 @@ public class IndexingServiceImpl implements IndexingService{
             siteDBRepository.save(siteDB);
         }
 
-        Page page = pageRepository.findByPathAndSiteDBId(path.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId());
+        Page page = pageRepository.getPageByPathAndSiteDBId(path.replaceFirst(siteDB.getUrl(), "/"),
+                siteDB.getId());
+        PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository,
+                lemmaRepository, indexRepository, path, siteDB);
         if (page != null) {
+//            lemmaService.lemmaFrequencyDecrement(siteDB);
             pageRepository.delete(page);
         }
 
-        PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository, path, siteDB);
         Document document = pagesParserService.getJsoupDocumentAndSavePage();
 
-        LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
         try {
-            lemmaService.lemmaAndIndexSave(lemmaService.getLemmasMap(document.toString()), siteDB, pagesParserService.getPage());
+            lemmaService.lemmaAndIndexSave(lemmaService.getLemmasMap(document.toString()),
+                    siteDB, pagesParserService.getPage());
         } catch (IOException e) {
             e.printStackTrace();
+            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            siteDB.setLastError(e.getMessage());
+            siteDB.setStatus(IndexingStatus.FAILED);
+            indexingResponse.setResult(false);
+            indexingResponse.setError(e.getMessage());
+
         }
 
         siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());

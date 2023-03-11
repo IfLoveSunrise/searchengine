@@ -7,20 +7,21 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
+import java.util.List;
 
 @Data
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name="page")
+@Table(name = "page", uniqueConstraints = {@UniqueConstraint(columnNames = {"path", "site_id"})}
+)
 public class Page {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(nullable = false)
     private int id;
 
-    @ManyToOne(cascade = CascadeType.MERGE)
-    @OnDelete(action = OnDeleteAction.CASCADE)
+    @ManyToOne
+    @JoinColumn(name = "site_id", referencedColumnName = "id", nullable = false)
     private SiteDB site;
 
     @Column(columnDefinition = "TEXT NOT NULL, INDEX index_path (path(50))")
@@ -31,6 +32,9 @@ public class Page {
 
     @Column(columnDefinition = "MEDIUMTEXT", nullable = false)
     private String content;
+
+    @OneToMany(mappedBy = "page", cascade = CascadeType.MERGE)
+    private List<Index> indexList;
 
     @Override
     public String toString() {

@@ -11,4 +11,5 @@ import java.util.List;
 public interface IndexRepository extends JpaRepository<Index, Integer> {
     @Query(value = "SELECT * FROM `index` WHERE page_id = :pageId", nativeQuery = true)
     List<Index> getIndexListByPageId(int pageId);
+
 }

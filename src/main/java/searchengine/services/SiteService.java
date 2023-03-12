@@ -3,7 +3,6 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import searchengine.model.IndexingStatus;
-import searchengine.model.Lemma;
 import searchengine.model.SiteDB;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
@@ -12,12 +11,11 @@ import searchengine.repositories.SiteDBRepository;
 
 import java.sql.Timestamp;
 import java.util.Date;
-import java.util.List;
 import java.util.concurrent.*;
 
 @Service
 @RequiredArgsConstructor
-public class SiteParserService extends Thread {
+public class SiteService extends Thread {
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
@@ -27,11 +25,11 @@ public class SiteParserService extends Thread {
 
     @Override
     public void run() {
-        PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository,
+        PageService pageService = new PageService(siteDBRepository, pageRepository,
                 lemmaRepository, indexRepository, siteDB.getUrl(), siteDB);
 
         try {
-            new ForkJoinPool(Runtime.getRuntime().availableProcessors()).submit(pagesParserService).get();
+            new ForkJoinPool(Runtime.getRuntime().availableProcessors()).submit(pageService).get();
         } catch (Exception e) {
             e.printStackTrace();
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
@@ -42,11 +40,7 @@ public class SiteParserService extends Thread {
         if (siteDB.getStatus().equals(IndexingStatus.INDEXING)) {
             siteDB.setStatus(IndexingStatus.INDEXED);
         }
-        siteDBRepository.save(siteDB);
-
-        List<Lemma> lemmaList = lemmaRepository.getLemmaListBySiteID(siteDB.getId());
-        lemmaList.forEach(lemma -> System.out.println(lemma.getLemma()));
-
+        siteDBRepository.saveAndFlush(siteDB);
         decrementCountInstances();
     }
 
@@ -56,7 +50,7 @@ public class SiteParserService extends Thread {
         siteDB.setUrl(siteUrl);
         siteDB.setStatus(IndexingStatus.INDEXING);
         siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-        siteDBRepository.save(siteDB);
+        siteDBRepository.saveAndFlush(siteDB);
         return siteDB;
     }
 

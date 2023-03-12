@@ -9,7 +9,7 @@ import java.util.List;
 
 @Repository
 public interface IndexRepository extends JpaRepository<Index, Integer> {
-    @Query(value = "SELECT * FROM `index` WHERE page_id = :pageId", nativeQuery = true)
-    List<Index> getIndexListByPageId(int pageId);
+    @Query(value = "SELECT lemma_id FROM `index` WHERE page_id = :pageId", nativeQuery = true)
+    List<Integer> getLemmaIdListByPageId(int pageId);
 
 }

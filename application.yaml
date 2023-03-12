@@ -17,9 +17,9 @@ spring:
 
 indexing-settings:
   sites:
-#    - url: https://volochek.life/
-#      name: volochek.life
+    - url: https://volochek.life/
+      name: volochek.life
 #    - url: https://dombulgakova.ru/
 #      name: dombulgakova.ru
-    - url: https://nikoartgallery.com/
-      name: nikoartgallery.com
+#    - url: https://nikoartgallery.com/
+#      name: nikoartgallery.com

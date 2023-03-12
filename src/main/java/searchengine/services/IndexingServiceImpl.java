@@ -15,6 +15,8 @@ import searchengine.repositories.SiteDBRepository;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,22 +32,22 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public IndexingResponse startIndexing() {
-        if (SiteParserService.getCountInstances() > 0) {
+        if (SiteService.getCountInstances() > 0) {
             indexingResponse.setResult(true);
             indexingResponse.setError("Индексация уже запущена");
             return indexingResponse;
         }
-        PagesParserService.running = true;
+        PageService.running = true;
         for (Site site : sites.getSites()) {
-            SiteParserService.incrementCountInstances();
+            SiteService.incrementCountInstances();
             SiteDB siteDB = siteDBRepository.findByUrl(site.getUrl());
             if (siteDB != null) {
                 siteDBRepository.delete(siteDB);
             }
-            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository,
+            SiteService siteService = new SiteService(siteDBRepository, pageRepository,
                     lemmaRepository, indexRepository);
-            siteParserService.createSiteDB(site.getName(), site.getUrl());
-            siteParserService.start();
+            siteService.createSiteDB(site.getName(), site.getUrl());
+            siteService.start();
         }
         indexingResponse.setResult(true);
         indexingResponse.setError(null);
@@ -55,10 +57,10 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public IndexingResponse stopIndexing() {
 
-        if (SiteParserService.getCountInstances() > 0) {
+        if (SiteService.getCountInstances() > 0) {
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
-            PagesParserService.running = false;
+            PageService.running = false;
         } else {
             indexingResponse.setResult(true);
             indexingResponse.setError("Индексация не запущена");
@@ -68,7 +70,7 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public IndexingResponse indexPage(String path) {
-        SiteParserService.incrementCountInstances();
+        SiteService.incrementCountInstances();
         LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
 
         String url;
@@ -99,28 +101,42 @@ public class IndexingServiceImpl implements IndexingService {
 
         SiteDB siteDB = siteDBRepository.findByUrl(url);
         if (siteDB == null) {
-            SiteParserService siteParserService = new SiteParserService(siteDBRepository, pageRepository,
+            SiteService siteService = new SiteService(siteDBRepository, pageRepository,
                     lemmaRepository, indexRepository);
-            siteDB = siteParserService.createSiteDB(siteName, url);
+            siteDB = siteService.createSiteDB(siteName, url);
         } else {
             siteDB.setStatus(IndexingStatus.INDEXING);
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            siteDBRepository.save(siteDB);
+            siteDBRepository.saveAndFlush(siteDB);
         }
 
-        Page page = pageRepository.getPageByPathAndSiteDBId(path.replaceFirst(siteDB.getUrl(), "/"),
-                siteDB.getId());
-        PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository,
+        List<Page> pageList = pageRepository.getPagesByPathAndSiteId(path.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId());
+        PageService pageService = new PageService(siteDBRepository, pageRepository,
                 lemmaRepository, indexRepository, path, siteDB);
-        if (page != null) {
-            pageRepository.delete(page);
+        if (!pageList.isEmpty()) {
+            Page page = pageList.get(0);
+            List<Integer> lemmaIds = indexRepository.getLemmaIdListByPageId(page.getId());
+            for (int lemmaId : lemmaIds) {
+                Optional<Lemma> lemmaOptional = lemmaRepository.findById(lemmaId);
+                if (lemmaOptional.isPresent()) {
+                    Lemma lemma = lemmaOptional.get();
+                    int frequency = lemma.getFrequency() - 1;
+                    if (frequency == 0) {
+                        lemmaRepository.delete(lemma);
+                    } else {
+                        lemma.setFrequency(frequency);
+                        lemmaRepository.saveAndFlush(lemma);
+                    }
+                }
+            }
+            pageRepository.delete(pageList.get(0));
         }
 
-        Document document = pagesParserService.getJsoupDocumentAndSavePage();
+        Document document = pageService.getJsoupDocumentAndSavePage();
 
         try {
             lemmaService.lemmaAndIndexSave(lemmaService.getLemmasMap(document.toString()),
-                    siteDB, pagesParserService.getPage());
+                    siteDB, pageService.getPage());
         } catch (IOException e) {
             e.printStackTrace();
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
@@ -133,8 +149,8 @@ public class IndexingServiceImpl implements IndexingService {
 
         siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
         siteDB.setStatus(IndexingStatus.INDEXED);
-        siteDBRepository.save(siteDB);
-        SiteParserService.decrementCountInstances();
+        siteDBRepository.saveAndFlush(siteDB);
+        SiteService.decrementCountInstances();
         indexingResponse.setResult(true);
         indexingResponse.setError(null);
         return indexingResponse;

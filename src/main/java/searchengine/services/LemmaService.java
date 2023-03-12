@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -47,10 +46,7 @@ public class LemmaService {
     }
 
     public void lemmaAndIndexSave(HashMap<String, Integer> lemmaMap, SiteDB siteDB, Page page) {
-        List<Lemma> lemmaList = new CopyOnWriteArrayList<>();
-        List<Index> indexList = new CopyOnWriteArrayList<>();
         Lemma lemma;
-
         for (String lemmaString : lemmaMap.keySet()) {
             List<Lemma> oldLemmaList = lemmaRepository.getLemmaListByLemmaAndSiteID(lemmaString, siteDB.getId());
             if (oldLemmaList.isEmpty()) {
@@ -58,17 +54,17 @@ public class LemmaService {
                 lemma.setSite(siteDB);
                 lemma.setLemma(lemmaString);
                 lemma.setFrequency(1);
-                lemmaList.add(lemma);
+                lemmaRepository.saveAndFlush(lemma);
                 Index index = new Index();
                 index.setPage(page);
                 index.setLemma(lemma);
                 index.setRank(lemmaMap.get(lemmaString));
-                indexList.add(index);
-            } else if (oldLemmaList.size() == 1){
+                indexRepository.saveAndFlush(index);
+            } else if (oldLemmaList.size() == 1) {
                 lemma = oldLemmaList.get(0);
                 lemma.setFrequency(lemma.getFrequency() + 1);
-                lemmaList.add(lemma);
-            } if (oldLemmaList.size() > 1) {
+                lemmaRepository.saveAndFlush(lemma);
+            } else {
                 lemma = oldLemmaList.get(0);
                 AtomicInteger frequency = new AtomicInteger();
                 oldLemmaList.forEach(lemmaCopy -> frequency.addAndGet(lemmaCopy.getFrequency()));
@@ -76,10 +72,8 @@ public class LemmaService {
                     lemmaRepository.delete(oldLemmaList.get(i));
                 }
                 lemma.setFrequency(frequency.addAndGet(1));
-                lemmaList.add(lemma);
+                lemmaRepository.saveAndFlush(lemma);
             }
         }
-        lemmaRepository.saveAllAndFlush(lemmaList);
-        indexRepository.saveAllAndFlush(indexList);
     }
 }

@@ -6,6 +6,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
+import java.util.List;
 
 @Data
 @Entity
@@ -18,7 +19,7 @@ public class Lemma {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @ManyToOne(cascade = CascadeType.MERGE)
+    @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private SiteDB site;
 
@@ -27,6 +28,9 @@ public class Lemma {
 
     @Column(nullable = false)
     private int frequency;
+
+    @OneToMany(mappedBy = "lemma", cascade = CascadeType.ALL)
+    private List<Index> indexList;
 
     @Override
     public String toString() {

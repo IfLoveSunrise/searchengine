@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Connection;
@@ -19,7 +20,7 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteDBRepository;
 
-public class PagesParserService extends RecursiveTask<SiteDB> {
+public class PageService extends RecursiveTask<SiteDB> {
     private final SiteDBRepository siteDBRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
@@ -29,9 +30,9 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
     private Page page;
     public static boolean running = true;
 
-    public PagesParserService(SiteDBRepository siteDBRepository, PageRepository pageRepository,
-                              LemmaRepository lemmaRepository, IndexRepository indexRepository,
-                              String url, SiteDB siteDB) {
+    public PageService(SiteDBRepository siteDBRepository, PageRepository pageRepository,
+                       LemmaRepository lemmaRepository, IndexRepository indexRepository,
+                       String url, SiteDB siteDB) {
         this.siteDBRepository = siteDBRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
@@ -44,21 +45,20 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
     protected SiteDB compute() {
         System.out.println(url);
 
-        List<PagesParserService> pagesParserServiceList = new CopyOnWriteArrayList<>();
+        List<PageService> pageServiceList = new CopyOnWriteArrayList<>();
         Set<String> linkSet = new CopyOnWriteArraySet<>();
 
         if (!running) stopIndexing();
 
         String path = url.replaceFirst(siteDB.getUrl(), "/");
-        Page pageTest = null;
-        try {
-            pageTest = pageRepository.getPageByPathAndSiteDBId(path, siteDB.getId());
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("PAGEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
+        AtomicBoolean pageTestBoolean = new AtomicBoolean(false);
+        for (Page pageTest : pageRepository.getPagesByPath(path)) {
+            if (pageTest.getSite().getId() == siteDB.getId()) {
+                pageTestBoolean.set(true);
+            }
         }
 
-        if (running && pageTest == null) {
+        if (running && !pageTestBoolean.get()) {
             Document document = getJsoupDocumentAndSavePage();
             if (document != null) {
                 for (Element element : document.select("a[href]")) {
@@ -67,15 +67,15 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
                     if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
                             && running && !link.equals(url) && !linkSet.contains(link)) {
                         linkSet.add(link);
-                        PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository,
+                        PageService pageService = new PageService(siteDBRepository, pageRepository,
                                 lemmaRepository, indexRepository, link, siteDB);
-                        pagesParserService.fork();
-                        pagesParserServiceList.add(pagesParserService);
+                        pageService.fork();
+                        pageServiceList.add(pageService);
                     }
                 }
             }
 
-            for (PagesParserService link : pagesParserServiceList) {
+            for (PageService link : pageServiceList) {
                 link.join();
             }
         }
@@ -86,7 +86,7 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
         Document document;
         try {
             Thread.sleep(2000);
-            Connection connection = Jsoup.connect(url);
+            Connection connection = Jsoup.connect(url).ignoreHttpErrors(true).ignoreContentType(true);
             document = connection.get();
             if (connection.response().statusCode() == 200) {
                 page = new Page();
@@ -95,7 +95,7 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
                 page.setCode(connection.response().statusCode());
                 page.setContent(document.toString());
                 siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-                pageRepository.save(page);
+                pageRepository.saveAndFlush(page);
                 LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
                 HashMap<String, Integer> lemmaMap = lemmaService.getLemmasMap(document.toString());
                 lemmaService.lemmaAndIndexSave(lemmaMap, siteDB, page);
@@ -104,7 +104,6 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
         } catch (Exception e) {
             document = null;
             e.printStackTrace();
-            System.out.println("LEMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
         }
 
         return document;
@@ -118,6 +117,6 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
         siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
         siteDB.setLastError("Индексация остановлена пользователем");
         siteDB.setStatus(IndexingStatus.FAILED);
-        siteDBRepository.save(siteDB);
+        siteDBRepository.saveAndFlush(siteDB);
     }
 }

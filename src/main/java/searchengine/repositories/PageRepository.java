@@ -9,9 +9,9 @@ import java.util.List;
 
 @Repository
 public interface PageRepository extends JpaRepository<Page, Integer> {
-    @Query(value = "SELECT * FROM page WHERE path = :path AND site_id = :idSiteDB", nativeQuery = true)
-    Page getPageByPathAndSiteDBId(String path, int idSiteDB);
+    @Query(value = "SELECT * FROM page WHERE path = :path", nativeQuery = true)
+    List<Page> getPagesByPath(String path);
 
-    @Query(value = "SELECT * FROM page WHERE site_id = :idSiteDB", nativeQuery = true)
-    List<Page> getPageListByPathAndSiteDBId(int idSiteDB);
+    @Query(value = "SELECT * FROM page WHERE path = :path AND site_id = :siteId", nativeQuery = true)
+    List<Page> getPagesByPathAndSiteId(String path, int siteId);
 }

@@ -16,10 +16,10 @@ spring:
     show-sql: true
 
 indexing-settings:
-  sites:
+  sitesConfigList:
     - url: https://volochek.life/
       name: volochek.life
-#    - url: https://dombulgakova.ru/
-#      name: dombulgakova.ru
-#    - url: https://nikoartgallery.com/
-#      name: nikoartgallery.com
+    - url: https://dombulgakova.ru/
+      name: dombulgakova.ru
+    - url: https://nikoartgallery.com/
+      name: nikoartgallery.com

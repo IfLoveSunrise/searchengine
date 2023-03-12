@@ -8,46 +8,53 @@ import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
+import searchengine.model.Site;
+import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
+import searchengine.repositories.SiteRepository;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
 public class StatisticsServiceImpl implements StatisticsService {
-
-    private final Random random = new Random();
+    private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
     private final SitesList sites;
 
     @Override
     public StatisticsResponse getStatistics() {
-        String[] statuses = { "INDEXED", "FAILED", "INDEXING" };
-        String[] errors = {
-                "Ошибка индексации: главная страница сайта не доступна",
-                "Ошибка индексации: сайт не доступен",
-                ""
-        };
-
         TotalStatistics total = new TotalStatistics();
-        total.setSites(sites.getSiteConfigs().size());
+        total.setSites(sites.getSitesConfigList().size());
         total.setIndexing(true);
 
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
-        List<SiteConfig> sitesList = sites.getSiteConfigs();
-        for(int i = 0; i < sitesList.size(); i++) {
-            SiteConfig siteConfig = sitesList.get(i);
+        List<SiteConfig> siteConfigList = sites.getSitesConfigList();
+        for (SiteConfig siteConfig : siteConfigList) {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(siteConfig.getName());
             item.setUrl(siteConfig.getUrl());
-            int pages = random.nextInt(1_000);
-            int lemmas = pages * random.nextInt(1_000);
+            List<Site> siteList = siteRepository.findByName(siteConfig.getName());
+            Site site = siteList.get(0);
+            int pages = pageRepository.countPagesBySiteId(site.getId());
+            int lemmas = lemmaRepository.countLemmasBySiteId(site.getId());
             item.setPages(pages);
             item.setLemmas(lemmas);
-            item.setStatus(statuses[i % 3]);
-            item.setError(errors[i % 3]);
-            item.setStatusTime(System.currentTimeMillis() -
-                    (random.nextInt(10_000)));
+            item.setStatus(site.getStatus().toString());
+            item.setError(site.getLastError());
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Date inputDate;
+            try {
+                inputDate = simpleDateFormat.parse(site.getStatusTime());
+            } catch (ParseException e) {
+                throw new RuntimeException(e);
+            }
+            item.setStatusTime(inputDate.getTime());
             total.setPages(total.getPages() + pages);
             total.setLemmas(total.getLemmas() + lemmas);
             detailed.add(item);
@@ -62,3 +69,4 @@ public class StatisticsServiceImpl implements StatisticsService {
         return response;
     }
 }
+

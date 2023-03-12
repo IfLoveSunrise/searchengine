@@ -33,12 +33,13 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public IndexingResponse startIndexing() {
         if (SiteService.getCountInstances() > 0) {
-            indexingResponse.setResult(true);
-            indexingResponse.setError("Индексация уже запущена");
+            indexingResponse.setResult(false);
+            indexingResponse.setError("Индексация еще не остановлена, попробуйте позже");
             return indexingResponse;
         }
         PageService.running = true;
-        for (SiteConfig siteConfig : sites.getSiteConfigs()) {
+        LemmaService.running = true;
+        for (SiteConfig siteConfig : sites.getSitesConfigList()) {
             SiteService.incrementCountInstances();
             Site site = siteRepository.findByUrl(siteConfig.getUrl());
             if (site != null) {
@@ -61,8 +62,9 @@ public class IndexingServiceImpl implements IndexingService {
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
             PageService.running = false;
+            LemmaService.running = false;
         } else {
-            indexingResponse.setResult(true);
+            indexingResponse.setResult(false);
             indexingResponse.setError("Индексация не запущена");
         }
         return indexingResponse;
@@ -70,7 +72,15 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public IndexingResponse indexPage(String path) {
+        if (SiteService.getCountInstances() > 0) {
+            indexingResponse.setResult(true);
+            indexingResponse.setError("Индексация еще не остановлена, попробуйте позже");
+            return indexingResponse;
+        }
+        PageService.running = true;
+        LemmaService.running = true;
         SiteService.incrementCountInstances();
+
         LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
 
         String url;
@@ -85,7 +95,7 @@ public class IndexingServiceImpl implements IndexingService {
 
         boolean isSiteExist = false;
         String siteName = "";
-        for (SiteConfig siteConfig : sites.getSiteConfigs()) {
+        for (SiteConfig siteConfig : sites.getSitesConfigList()) {
             if (siteConfig.getUrl().equals(url)) {
                 isSiteExist = true;
                 siteName = siteConfig.getName();

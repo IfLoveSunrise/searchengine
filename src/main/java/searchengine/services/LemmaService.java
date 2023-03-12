@@ -36,17 +36,26 @@ public class LemmaService {
                 break;
             }
             word = word.replaceAll("ё", "е");
-            if (word.length() > 1) {
-                List<String> wordBaseForms = luceneMorph.getMorphInfo(word);
-                for (String wordBaseForm : wordBaseForms) {
-                    if (!wordBaseForm.matches(".+[А-Я]$")) {
-                        String lemma = word.replace("|.+$", "");
-                        lemmasMap.put(lemma, lemmasMap.containsKey(lemma) ? lemmasMap.get(lemma) + 1 : 1);
-                    }
+            if (isNecessaryWord(word, luceneMorph)) {
+                List<String> lemmaList = luceneMorph.getNormalForms(word);
+                for (String lemma : lemmaList) {
+                    lemmasMap.put(lemma, lemmasMap.containsKey(lemma) ? lemmasMap.get(lemma) + 1 : 1);
                 }
             }
         }
         return lemmasMap;
+    }
+
+    public boolean isNecessaryWord(String word, LuceneMorphology luceneMorph) {
+        if (word.length() > 1) {
+            List<String> wordMorphInfoList = luceneMorph.getMorphInfo(word);
+            for (String wordMorphInfo : wordMorphInfoList) {
+                if (!wordMorphInfo.matches(".+[А-Я]$")) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public void lemmaAndIndexSave(HashMap<String, Integer> lemmaMap, Site site, Page page) {

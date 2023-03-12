@@ -14,4 +14,7 @@ public interface PageRepository extends JpaRepository<Page, Integer> {
 
     @Query(value = "SELECT * FROM page WHERE path = :path AND site_id = :siteId", nativeQuery = true)
     List<Page> getPagesByPathAndSiteId(String path, int siteId);
+
+    @Query(value = "SELECT COUNT(*) FROM page WHERE site_id = :siteId", nativeQuery = true)
+    int countPagesBySiteId(int siteId);
 }

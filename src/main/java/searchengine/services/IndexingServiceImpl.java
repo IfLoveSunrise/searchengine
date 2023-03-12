@@ -3,14 +3,14 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
-import searchengine.config.Site;
+import searchengine.config.SiteConfig;
 import searchengine.config.SitesList;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.*;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
-import searchengine.repositories.SiteDBRepository;
+import searchengine.repositories.SiteRepository;
 
 import java.io.IOException;
 import java.sql.Timestamp;
@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
-    private final SiteDBRepository siteDBRepository;
+    private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
@@ -38,15 +38,15 @@ public class IndexingServiceImpl implements IndexingService {
             return indexingResponse;
         }
         PageService.running = true;
-        for (Site site : sites.getSites()) {
+        for (SiteConfig siteConfig : sites.getSiteConfigs()) {
             SiteService.incrementCountInstances();
-            SiteDB siteDB = siteDBRepository.findByUrl(site.getUrl());
-            if (siteDB != null) {
-                siteDBRepository.delete(siteDB);
+            Site site = siteRepository.findByUrl(siteConfig.getUrl());
+            if (site != null) {
+                siteRepository.delete(site);
             }
-            SiteService siteService = new SiteService(siteDBRepository, pageRepository,
+            SiteService siteService = new SiteService(siteRepository, pageRepository,
                     lemmaRepository, indexRepository);
-            siteService.createSiteDB(site.getName(), site.getUrl());
+            siteService.createSiteDB(siteConfig.getName(), siteConfig.getUrl());
             siteService.start();
         }
         indexingResponse.setResult(true);
@@ -85,10 +85,10 @@ public class IndexingServiceImpl implements IndexingService {
 
         boolean isSiteExist = false;
         String siteName = "";
-        for (Site site : sites.getSites()) {
-            if (site.getUrl().equals(url)) {
+        for (SiteConfig siteConfig : sites.getSiteConfigs()) {
+            if (siteConfig.getUrl().equals(url)) {
                 isSiteExist = true;
-                siteName = site.getName();
+                siteName = siteConfig.getName();
             }
         }
 
@@ -99,20 +99,20 @@ public class IndexingServiceImpl implements IndexingService {
             return indexingResponse;
         }
 
-        SiteDB siteDB = siteDBRepository.findByUrl(url);
-        if (siteDB == null) {
-            SiteService siteService = new SiteService(siteDBRepository, pageRepository,
+        Site site = siteRepository.findByUrl(url);
+        if (site == null) {
+            SiteService siteService = new SiteService(siteRepository, pageRepository,
                     lemmaRepository, indexRepository);
-            siteDB = siteService.createSiteDB(siteName, url);
+            site = siteService.createSiteDB(siteName, url);
         } else {
-            siteDB.setStatus(IndexingStatus.INDEXING);
-            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            siteDBRepository.saveAndFlush(siteDB);
+            site.setStatus(IndexingStatus.INDEXING);
+            site.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            siteRepository.saveAndFlush(site);
         }
 
-        List<Page> pageList = pageRepository.getPagesByPathAndSiteId(path.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId());
-        PageService pageService = new PageService(siteDBRepository, pageRepository,
-                lemmaRepository, indexRepository, path, siteDB);
+        List<Page> pageList = pageRepository.getPagesByPathAndSiteId(path.replaceFirst(site.getUrl(), "/"), site.getId());
+        PageService pageService = new PageService(siteRepository, pageRepository,
+                lemmaRepository, indexRepository, path, site);
         if (!pageList.isEmpty()) {
             Page page = pageList.get(0);
             List<Integer> lemmaIds = indexRepository.getLemmaIdListByPageId(page.getId());
@@ -136,20 +136,20 @@ public class IndexingServiceImpl implements IndexingService {
 
         try {
             lemmaService.lemmaAndIndexSave(lemmaService.getLemmasMap(document.toString()),
-                    siteDB, pageService.getPage());
+                    site, pageService.getPage());
         } catch (IOException e) {
             e.printStackTrace();
-            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            siteDB.setLastError(e.getMessage());
-            siteDB.setStatus(IndexingStatus.FAILED);
+            site.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            site.setLastError(e.getMessage());
+            site.setStatus(IndexingStatus.FAILED);
             indexingResponse.setResult(false);
             indexingResponse.setError(e.getMessage());
 
         }
 
-        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-        siteDB.setStatus(IndexingStatus.INDEXED);
-        siteDBRepository.saveAndFlush(siteDB);
+        site.setStatusTime(new Timestamp(new Date().getTime()).toString());
+        site.setStatus(IndexingStatus.INDEXED);
+        siteRepository.saveAndFlush(site);
         SiteService.decrementCountInstances();
         indexingResponse.setResult(true);
         indexingResponse.setError(null);

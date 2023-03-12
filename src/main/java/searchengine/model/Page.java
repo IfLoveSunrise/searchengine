@@ -20,7 +20,7 @@ public class Page {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private SiteDB site;
+    private Site site;
 
     @Column(columnDefinition = "TEXT NOT NULL, INDEX index_path (path(50))")
     private String path;
@@ -31,14 +31,6 @@ public class Page {
     @Column(columnDefinition = "MEDIUMTEXT", nullable = false)
     private String content;
 
-//    @ManyToMany (cascade = {
-//            CascadeType.PERSIST,
-//            CascadeType.MERGE
-//    })
-//    @JoinTable(name = "page_index",
-//            joinColumns = @JoinColumn(name = "page_id"),
-//            inverseJoinColumns = @JoinColumn(name = "index_id")
-//    )
     @OneToMany(mappedBy = "page", cascade = CascadeType.ALL)
     private List<Index> indexList;
 

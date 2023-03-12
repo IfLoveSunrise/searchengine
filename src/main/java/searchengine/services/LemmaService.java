@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import searchengine.model.Index;
 import searchengine.model.Lemma;
 import searchengine.model.Page;
-import searchengine.model.SiteDB;
+import searchengine.model.Site;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 
@@ -45,13 +45,13 @@ public class LemmaService {
         return lemmasMap;
     }
 
-    public void lemmaAndIndexSave(HashMap<String, Integer> lemmaMap, SiteDB siteDB, Page page) {
+    public void lemmaAndIndexSave(HashMap<String, Integer> lemmaMap, Site site, Page page) {
         Lemma lemma;
         for (String lemmaString : lemmaMap.keySet()) {
-            List<Lemma> oldLemmaList = lemmaRepository.getLemmaListByLemmaAndSiteID(lemmaString, siteDB.getId());
+            List<Lemma> oldLemmaList = lemmaRepository.getLemmaListByLemmaAndSiteID(lemmaString, site.getId());
             if (oldLemmaList.isEmpty()) {
                 lemma = new Lemma();
-                lemma.setSite(siteDB);
+                lemma.setSite(site);
                 lemma.setLemma(lemmaString);
                 lemma.setFrequency(1);
                 lemmaRepository.saveAndFlush(lemma);

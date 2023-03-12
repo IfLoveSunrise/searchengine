@@ -2,9 +2,9 @@ package searchengine.repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import searchengine.model.SiteDB;
+import searchengine.model.Site;
 
 @Repository
-public interface SiteDBRepository extends JpaRepository<SiteDB, Integer> {
-    SiteDB findByUrl(String url);
+public interface SiteRepository extends JpaRepository<Site, Integer> {
+    Site findByUrl(String url);
 }

@@ -14,35 +14,35 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import searchengine.model.IndexingStatus;
 import searchengine.model.Page;
-import searchengine.model.SiteDB;
+import searchengine.model.Site;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
-import searchengine.repositories.SiteDBRepository;
+import searchengine.repositories.SiteRepository;
 
-public class PageService extends RecursiveTask<SiteDB> {
-    private final SiteDBRepository siteDBRepository;
+public class PageService extends RecursiveTask<Site> {
+    private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final String url;
-    private final SiteDB siteDB;
+    private final Site site;
     private Page page;
     public static boolean running = true;
 
-    public PageService(SiteDBRepository siteDBRepository, PageRepository pageRepository,
+    public PageService(SiteRepository siteRepository, PageRepository pageRepository,
                        LemmaRepository lemmaRepository, IndexRepository indexRepository,
-                       String url, SiteDB siteDB) {
-        this.siteDBRepository = siteDBRepository;
+                       String url, Site site) {
+        this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.url = url;
-        this.siteDB = siteDB;
+        this.site = site;
     }
 
     @Override
-    protected SiteDB compute() {
+    protected Site compute() {
         System.out.println(url);
 
         List<PageService> pageServiceList = new CopyOnWriteArrayList<>();
@@ -50,10 +50,10 @@ public class PageService extends RecursiveTask<SiteDB> {
 
         if (!running) stopIndexing();
 
-        String path = url.replaceFirst(siteDB.getUrl(), "/");
+        String path = url.replaceFirst(site.getUrl(), "/");
         AtomicBoolean pageTestBoolean = new AtomicBoolean(false);
         for (Page pageTest : pageRepository.getPagesByPath(path)) {
-            if (pageTest.getSite().getId() == siteDB.getId()) {
+            if (pageTest.getSite().getId() == site.getId()) {
                 pageTestBoolean.set(true);
             }
         }
@@ -67,8 +67,8 @@ public class PageService extends RecursiveTask<SiteDB> {
                     if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
                             && running && !link.equals(url) && !linkSet.contains(link)) {
                         linkSet.add(link);
-                        PageService pageService = new PageService(siteDBRepository, pageRepository,
-                                lemmaRepository, indexRepository, link, siteDB);
+                        PageService pageService = new PageService(siteRepository, pageRepository,
+                                lemmaRepository, indexRepository, link, site);
                         pageService.fork();
                         pageServiceList.add(pageService);
                     }
@@ -79,7 +79,7 @@ public class PageService extends RecursiveTask<SiteDB> {
                 link.join();
             }
         }
-        return siteDB;
+        return site;
     }
 
     public Document getJsoupDocumentAndSavePage() {
@@ -90,15 +90,15 @@ public class PageService extends RecursiveTask<SiteDB> {
             document = connection.get();
             if (connection.response().statusCode() == 200) {
                 page = new Page();
-                page.setSite(siteDB);
-                page.setPath(url.replaceFirst(siteDB.getUrl(), "/"));
+                page.setSite(site);
+                page.setPath(url.replaceFirst(site.getUrl(), "/"));
                 page.setCode(connection.response().statusCode());
                 page.setContent(document.toString());
-                siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+                site.setStatusTime(new Timestamp(new Date().getTime()).toString());
                 pageRepository.saveAndFlush(page);
                 LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
                 HashMap<String, Integer> lemmaMap = lemmaService.getLemmasMap(document.toString());
-                lemmaService.lemmaAndIndexSave(lemmaMap, siteDB, page);
+                lemmaService.lemmaAndIndexSave(lemmaMap, site, page);
             }
 
         } catch (Exception e) {
@@ -114,9 +114,9 @@ public class PageService extends RecursiveTask<SiteDB> {
     }
 
     public void stopIndexing() {
-        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-        siteDB.setLastError("Индексация остановлена пользователем");
-        siteDB.setStatus(IndexingStatus.FAILED);
-        siteDBRepository.saveAndFlush(siteDB);
+        site.setStatusTime(new Timestamp(new Date().getTime()).toString());
+        site.setLastError("Индексация остановлена пользователем");
+        site.setStatus(IndexingStatus.FAILED);
+        siteRepository.saveAndFlush(site);
     }
 }

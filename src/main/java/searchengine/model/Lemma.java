@@ -21,7 +21,7 @@ public class Lemma {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private SiteDB site;
+    private Site site;
 
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
     private String lemma;

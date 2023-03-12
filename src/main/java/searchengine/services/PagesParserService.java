@@ -1,6 +1,5 @@
 package searchengine.services;
 
-import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -45,6 +44,9 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
     protected SiteDB compute() {
         System.out.println(url);
 
+        List<PagesParserService> pagesParserServiceList = new CopyOnWriteArrayList<>();
+        Set<String> linkSet = new CopyOnWriteArraySet<>();
+
         if (!running) stopIndexing();
 
         String path = url.replaceFirst(siteDB.getUrl(), "/");
@@ -57,8 +59,6 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
         }
 
         if (running && pageTest == null) {
-            List<PagesParserService> pagesParserServiceList = new CopyOnWriteArrayList<>();
-            Set<String> linkSet = new CopyOnWriteArraySet<>();
             Document document = getJsoupDocumentAndSavePage();
             if (document != null) {
                 for (Element element : document.select("a[href]")) {
@@ -84,30 +84,25 @@ public class PagesParserService extends RecursiveTask<SiteDB> {
 
     public Document getJsoupDocumentAndSavePage() {
         Document document;
-        Connection connection = Jsoup.connect(url);
-//                .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) " +
-//                        "Gecko/20070725 Firefox/2.0.0.6")
-//                .referrer("http://www.google.com");
         try {
-            Thread.sleep(1000);
+            Thread.sleep(2000);
+            Connection connection = Jsoup.connect(url);
             document = connection.get();
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("DOKUMENTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
-            return null;
-        }
+            if (connection.response().statusCode() == 200) {
+                page = new Page();
+                page.setSite(siteDB);
+                page.setPath(url.replaceFirst(siteDB.getUrl(), "/"));
+                page.setCode(connection.response().statusCode());
+                page.setContent(document.toString());
+                siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+                pageRepository.save(page);
+                LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
+                HashMap<String, Integer> lemmaMap = lemmaService.getLemmasMap(document.toString());
+                lemmaService.lemmaAndIndexSave(lemmaMap, siteDB, page);
+            }
 
-        page = new Page();
-        page.setSite(siteDB);
-        page.setPath(url.replaceFirst(siteDB.getUrl(), "/"));
-        page.setCode(connection.response().statusCode());
-        page.setContent(document.toString());
-        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-        pageRepository.save(page);
-        LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
-        try {
-            lemmaService.lemmaAndIndexSave(lemmaService.getLemmasMap(document.toString()), siteDB, page);
-        } catch (IOException e) {
+        } catch (Exception e) {
+            document = null;
             e.printStackTrace();
             System.out.println("LEMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
         }

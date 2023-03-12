@@ -113,7 +113,6 @@ public class IndexingServiceImpl implements IndexingService {
         PagesParserService pagesParserService = new PagesParserService(siteDBRepository, pageRepository,
                 lemmaRepository, indexRepository, path, siteDB);
         if (page != null) {
-//            lemmaService.lemmaFrequencyDecrement(siteDB);
             pageRepository.delete(page);
         }
 

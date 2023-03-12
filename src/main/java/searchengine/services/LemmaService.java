@@ -12,10 +12,11 @@ import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -46,29 +47,38 @@ public class LemmaService {
     }
 
     public void lemmaAndIndexSave(HashMap<String, Integer> lemmaMap, SiteDB siteDB, Page page) {
-        List<Lemma> lemmaList = new ArrayList<>();
-        List<Index> indexList = new ArrayList<>();
+        List<Lemma> lemmaList = new CopyOnWriteArrayList<>();
+        List<Index> indexList = new CopyOnWriteArrayList<>();
+        Lemma lemma;
 
         for (String lemmaString : lemmaMap.keySet()) {
-            Lemma lemma = lemmaRepository.getLemmaBySiteID(lemmaString, siteDB.getId());
-            if (lemma == null) {
+            List<Lemma> oldLemmaList = lemmaRepository.getLemmaListByLemmaAndSiteID(lemmaString, siteDB.getId());
+            if (oldLemmaList.isEmpty()) {
                 lemma = new Lemma();
                 lemma.setSite(siteDB);
                 lemma.setLemma(lemmaString);
                 lemma.setFrequency(1);
                 lemmaList.add(lemma);
-
                 Index index = new Index();
                 index.setPage(page);
                 index.setLemma(lemma);
                 index.setRank(lemmaMap.get(lemmaString));
                 indexList.add(index);
-            } else {
+            } else if (oldLemmaList.size() == 1){
+                lemma = oldLemmaList.get(0);
                 lemma.setFrequency(lemma.getFrequency() + 1);
+                lemmaList.add(lemma);
+            } if (oldLemmaList.size() > 1) {
+                lemma = oldLemmaList.get(0);
+                AtomicInteger frequency = new AtomicInteger();
+                oldLemmaList.forEach(lemmaCopy -> frequency.addAndGet(lemmaCopy.getFrequency()));
+                for (int i = 1; i < oldLemmaList.size(); i++) {
+                    lemmaRepository.delete(oldLemmaList.get(i));
+                }
+                lemma.setFrequency(frequency.addAndGet(1));
                 lemmaList.add(lemma);
             }
         }
-
         lemmaRepository.saveAllAndFlush(lemmaList);
         indexRepository.saveAllAndFlush(indexList);
     }

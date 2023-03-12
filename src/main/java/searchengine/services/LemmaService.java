@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LemmaService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
+    public static boolean running = true;
 
     public HashMap<String, Integer> getLemmasMap(String text) throws IOException {
         HashMap<String, Integer> lemmasMap = new HashMap<>();
@@ -31,6 +32,9 @@ public class LemmaService {
                 .toLowerCase(Locale.ROOT).split("\\s+");
 
         for (String word : words) {
+            if (!running) {
+                break;
+            }
             word = word.replaceAll("ё", "е");
             if (word.length() > 1) {
                 List<String> wordBaseForms = luceneMorph.getMorphInfo(word);
@@ -48,6 +52,9 @@ public class LemmaService {
     public void lemmaAndIndexSave(HashMap<String, Integer> lemmaMap, Site site, Page page) {
         Lemma lemma;
         for (String lemmaString : lemmaMap.keySet()) {
+            if (!running) {
+                break;
+            }
             List<Lemma> oldLemmaList = lemmaRepository.getLemmaListByLemmaAndSiteID(lemmaString, site.getId());
             if (oldLemmaList.isEmpty()) {
                 lemma = new Lemma();

@@ -62,6 +62,9 @@ public class PageService extends RecursiveTask<Site> {
             Document document = getJsoupDocumentAndSavePage();
             if (document != null) {
                 for (Element element : document.select("a[href]")) {
+                    if (!running) {
+                        break;
+                    }
                     String link = element.absUrl("href");
                     int pointCount = StringUtils.countMatches(link.replace(url, ""), ".");
                     if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
@@ -76,6 +79,9 @@ public class PageService extends RecursiveTask<Site> {
             }
 
             for (PageService link : pageServiceList) {
+                if (!running) {
+                    break;
+                }
                 link.join();
             }
         }

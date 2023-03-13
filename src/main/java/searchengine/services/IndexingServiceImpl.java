@@ -31,19 +31,22 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public IndexingResponse startIndexing() {
         IndexingResponse indexingResponse = checkingIndexingRunning();
-        SiteService siteService = new SiteService(siteRepository, pageRepository,
-                lemmaRepository, indexRepository);
-
         if (!indexingResponse.isResult()) return indexingResponse;
 
         for (SiteConfig siteConfig : sites.getSitesConfigList()) {
             SiteService.incrementCountInstances();
             IndexingData indexingData = new IndexingData();
+            indexingData.setIndexingResponse(indexingResponse);
             indexingData.setUrl(siteConfig.getUrl());
+
+            SiteService siteService = new SiteService(siteRepository, pageRepository,
+                    lemmaRepository, indexRepository);
+
             indexingData = siteService.checkingAvailabilitySiteInDB(indexingData);
             if (!indexingData.getIndexingResponse().isResult()) {
-                stopIndexing();
-                return indexingResponse;
+                PageService.running = false;
+                LemmaService.running = false;
+                return indexingData.getIndexingResponse();
             }
             if (indexingData.getSite() != null) {
                 siteRepository.delete(indexingData.getSite());
@@ -51,14 +54,11 @@ public class IndexingServiceImpl implements IndexingService {
             siteService.createSiteDB(siteConfig.getName(), siteConfig.getUrl());
             siteService.start();
         }
-        indexingResponse.setResult(true);
-        indexingResponse.setError(null);
         return indexingResponse;
     }
 
     @Override
     public IndexingResponse stopIndexing() {
-
         IndexingResponse indexingResponse = new IndexingResponse();
         if (SiteService.getCountInstances() > 0) {
             PageService.running = false;
@@ -99,8 +99,6 @@ public class IndexingServiceImpl implements IndexingService {
         site.setStatus(IndexingStatus.INDEXED);
         siteRepository.saveAndFlush(site);
         SiteService.decrementCountInstances();
-        indexingResponse.setResult(true);
-        indexingResponse.setError(null);
         return indexingResponse;
     }
 
@@ -119,15 +117,15 @@ public class IndexingServiceImpl implements IndexingService {
 
     public IndexingData checkingCorrectnessPath(String path) {
         IndexingData indexingData = new IndexingData();
-        IndexingResponse indexingResponse = new IndexingResponse(true, null);
+        indexingData.setIndexingResponse(new IndexingResponse(true, null));
 
         Matcher matcher = Pattern.compile("(.+//[^/]+/).*").matcher(path);
         if (matcher.find()) {
             indexingData.setUrl(matcher.group(1));
         } else {
-            indexingResponse.setResult(false);
-            indexingResponse.setError("Адрес страницы указан неверно. Пример: https://example.com/news/");
-            indexingData.setIndexingResponse(indexingResponse);
+            indexingData.getIndexingResponse().setResult(false);
+            indexingData.getIndexingResponse().setError("Адрес страницы указан неверно. " +
+                    "Пример: https://example.com/news/");
             return indexingData;
         }
 
@@ -140,10 +138,9 @@ public class IndexingServiceImpl implements IndexingService {
         }
 
         if (!isSiteExist) {
-            indexingResponse.setResult(false);
-            indexingResponse.setError("Данная страница находится за пределами сайтов, " +
+            indexingData.getIndexingResponse().setResult(false);
+            indexingData.getIndexingResponse().setError("Данная страница находится за пределами сайтов, " +
                     "указанных в конфигурационном файле");
-            indexingData.setIndexingResponse(indexingResponse);
         }
         return indexingData;
     }

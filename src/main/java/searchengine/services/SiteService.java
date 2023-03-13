@@ -69,7 +69,7 @@ public class SiteService extends Thread {
             siteCheck = siteList.get(0);
             siteCheck.setStatus(IndexingStatus.INDEXING);
             siteCheck.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            siteRepository.saveAndFlush(site);
+            siteRepository.saveAndFlush(siteCheck);
         }
         indexingData.setSite(siteCheck);
         return indexingData;

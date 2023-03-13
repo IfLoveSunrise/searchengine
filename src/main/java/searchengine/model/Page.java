@@ -20,7 +20,7 @@ public class Page {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private Site site;
+    private SiteDB site;
 
     @Column(columnDefinition = "TEXT NOT NULL, INDEX index_path (path(50))")
     private String path;

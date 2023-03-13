@@ -11,7 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name="site")
-public class Site {
+public class SiteDB {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;

@@ -2,7 +2,7 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import searchengine.config.SiteConfig;
+import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.indexing.IndexingData;
 import searchengine.dto.indexing.IndexingResponse;
@@ -33,11 +33,12 @@ public class IndexingServiceImpl implements IndexingService {
         IndexingResponse indexingResponse = checkingIndexingRunning();
         if (!indexingResponse.isResult()) return indexingResponse;
 
-        for (SiteConfig siteConfig : sites.getSites()) {
+        for (Site site : sites.getSites()) {
             SiteService.incrementCountInstances();
             IndexingData indexingData = new IndexingData();
             indexingData.setIndexingResponse(indexingResponse);
-            indexingData.setUrl(siteConfig.getUrl());
+            indexingData.setUrl(site.getUrl());
+            indexingData.setSiteName(site.getName());
 
             SiteService siteService = new SiteService(siteRepository, pageRepository,
                     lemmaRepository, indexRepository);
@@ -48,10 +49,10 @@ public class IndexingServiceImpl implements IndexingService {
                 LemmaService.running = false;
                 return indexingData.getIndexingResponse();
             }
-            if (indexingData.getSite() != null) {
-                siteRepository.delete(indexingData.getSite());
+            if (indexingData.getSiteDB() != null) {
+                siteRepository.delete(indexingData.getSiteDB());
             }
-            siteService.createSiteDB(siteConfig.getName(), siteConfig.getUrl());
+            siteService.createSiteDB(site.getName(), site.getUrl());
             siteService.start();
         }
         return indexingResponse;
@@ -66,7 +67,7 @@ public class IndexingServiceImpl implements IndexingService {
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
         } else {
-            indexingResponse.setResult(false);
+            indexingResponse.setResult(true);
             indexingResponse.setError("Индексация не запущена");
         }
         return indexingResponse;
@@ -74,31 +75,34 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public IndexingResponse indexPage(String path) {
-        SiteService siteService = new SiteService(siteRepository, pageRepository,
-                lemmaRepository, indexRepository);
-
         IndexingResponse indexingResponse = checkingIndexingRunning();
         if (!indexingResponse.isResult()) return indexingResponse;
-        SiteService.incrementCountInstances();
 
         IndexingData indexingData = checkingCorrectnessPath(path);
         if (!indexingData.getIndexingResponse().isResult()) return indexingData.getIndexingResponse();
 
+        SiteService siteService = new SiteService(siteRepository, pageRepository,
+                lemmaRepository, indexRepository);
+        SiteService.incrementCountInstances();
+
         indexingData = siteService.checkingAvailabilitySiteInDB(indexingData);
         if (!indexingData.getIndexingResponse().isResult()) return indexingData.getIndexingResponse();
-        Site site = indexingData.getSite();
 
-        indexingData.setPageList(pageRepository.getPagesByPathAndSiteId(path.replaceFirst(site.getUrl(), "/"),
-                site.getId()));
+        SiteDB siteDB = indexingData.getSiteDB() != null ? indexingData.getSiteDB() :
+                siteService.createSiteDB(indexingData.getSiteName(), indexingData.getUrl());
+
+        indexingData.setPageList(pageRepository.getPagesByPathAndSiteId(
+                path.replaceFirst(siteDB.getUrl(), "/"), siteDB.getId()));
         indexingData.setPageService(new PageService(siteRepository, pageRepository,
-                lemmaRepository, indexRepository, path, site));
+                lemmaRepository, indexRepository, path, siteDB));
         indexingData.setLemmaService(new LemmaService(lemmaRepository, indexRepository));
         indexingData = parseLemmas(indexingData);
+
         if (!indexingData.getIndexingResponse().isResult()) return indexingData.getIndexingResponse();
 
-        site.setStatusTime(new Timestamp(new Date().getTime()).toString());
-        site.setStatus(IndexingStatus.INDEXED);
-        siteRepository.saveAndFlush(site);
+        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+        siteDB.setStatus(IndexingStatus.INDEXED);
+        siteRepository.saveAndFlush(siteDB);
         SiteService.decrementCountInstances();
         return indexingResponse;
     }
@@ -108,7 +112,7 @@ public class IndexingServiceImpl implements IndexingService {
         indexingResponse.setResult(true);
         if (SiteService.getCountInstances() > 0) {
             indexingResponse.setResult(false);
-            indexingResponse.setError("Индексация еще не остановлена, попробуйте позже");
+            indexingResponse.setError("Индексация уже запущена");
             return indexingResponse;
         }
         indexingResponse.setResult(true);
@@ -132,10 +136,10 @@ public class IndexingServiceImpl implements IndexingService {
         }
 
         boolean isSiteExist = false;
-        for (SiteConfig siteConfig : sites.getSites()) {
-            if (siteConfig.getUrl().equals(indexingData.getUrl())) {
+        for (Site site : sites.getSites()) {
+            if (site.getUrl().equals(indexingData.getUrl())) {
                 isSiteExist = true;
-                indexingData.setSiteName(siteConfig.getName());
+                indexingData.setSiteName(site.getName());
             }
         }
 
@@ -174,12 +178,12 @@ public class IndexingServiceImpl implements IndexingService {
         try {
             HashMap<String, Integer> lemmasMap = indexingData.getLemmaService().
                     getLemmasMap(pageParserData.getDocument().toString());
-            indexingData.getLemmaService().lemmaAndIndexSave(lemmasMap, indexingData.getSite(),
+            indexingData.getLemmaService().lemmaAndIndexSave(lemmasMap, indexingData.getSiteDB(),
                     pageParserData.getPage());
         } catch (IOException e) {
-            indexingData.getSite().setStatusTime(new Timestamp(new Date().getTime()).toString());
-            indexingData.getSite().setLastError(e.getMessage());
-            indexingData.getSite().setStatus(IndexingStatus.FAILED);
+            indexingData.getSiteDB().setStatusTime(new Timestamp(new Date().getTime()).toString());
+            indexingData.getSiteDB().setLastError(e.getMessage());
+            indexingData.getSiteDB().setStatus(IndexingStatus.FAILED);
             indexingData.getIndexingResponse().setResult(false);
             indexingData.getIndexingResponse().setError(e.getMessage());
         }

@@ -2,13 +2,13 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import searchengine.config.SiteConfig;
+import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
-import searchengine.model.Site;
+import searchengine.model.SiteDB;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
@@ -34,24 +34,24 @@ public class StatisticsServiceImpl implements StatisticsService {
         total.setIndexing(true);
 
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
-        List<SiteConfig> siteConfigList = sites.getSites();
-        for (SiteConfig siteConfig : siteConfigList) {
+        List<Site> siteList = sites.getSites();
+        for (Site site : siteList) {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setName(siteConfig.getName());
-            item.setUrl(siteConfig.getUrl());
-            List<Site> siteList = siteRepository.findByName(siteConfig.getName());
-            if (siteList.isEmpty()) return emptySites();
-            Site site = siteList.get(0);
-            int pages = pageRepository.countPagesBySiteId(site.getId());
-            int lemmas = lemmaRepository.countLemmasBySiteId(site.getId());
+            item.setName(site.getName());
+            item.setUrl(site.getUrl());
+            List<SiteDB> siteDBList = siteRepository.findByName(site.getName());
+            if (siteDBList.isEmpty()) return emptySites();
+            SiteDB siteDB = siteDBList.get(0);
+            int pages = pageRepository.countPagesBySiteId(siteDB.getId());
+            int lemmas = lemmaRepository.countLemmasBySiteId(siteDB.getId());
             item.setPages(pages);
             item.setLemmas(lemmas);
-            item.setStatus(site.getStatus().toString());
-            item.setError(site.getLastError());
+            item.setStatus(siteDB.getStatus().toString());
+            item.setError(siteDB.getLastError());
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             Date inputDate;
             try {
-                inputDate = simpleDateFormat.parse(site.getStatusTime());
+                inputDate = simpleDateFormat.parse(siteDB.getStatusTime());
             } catch (ParseException e) {
                 throw new RuntimeException(e);
             }
@@ -76,11 +76,11 @@ public class StatisticsServiceImpl implements StatisticsService {
         total.setIndexing(true);
 
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
-        List<SiteConfig> siteConfigList = sites.getSites();
-        for (SiteConfig siteConfig : siteConfigList) {
+        List<Site> siteList = sites.getSites();
+        for (Site site : siteList) {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setName(siteConfig.getName());
-            item.setUrl(siteConfig.getUrl());
+            item.setName(site.getName());
+            item.setUrl(site.getUrl());
             item.setPages(0);
             item.setLemmas(0);
             item.setStatus(null);

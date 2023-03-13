@@ -2,7 +2,7 @@ package searchengine.dto.indexing;
 
 import lombok.Data;
 import searchengine.model.Page;
-import searchengine.model.Site;
+import searchengine.model.SiteDB;
 import searchengine.services.LemmaService;
 import searchengine.services.PageService;
 
@@ -17,7 +17,7 @@ public class IndexingData {
 
     private String siteName;
 
-    private Site site;
+    private SiteDB siteDB;
 
     private LemmaService lemmaService;
 

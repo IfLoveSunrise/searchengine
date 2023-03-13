@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import searchengine.dto.indexing.IndexingData;
 import searchengine.model.IndexingStatus;
-import searchengine.model.Site;
+import searchengine.model.SiteDB;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
@@ -22,56 +22,54 @@ public class SiteService extends Thread {
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
-    private Site site;
+    private SiteDB siteDB;
     private static int countInstances = 0;
 
     @Override
     public void run() {
         PageService pageService = new PageService(siteRepository, pageRepository,
-                lemmaRepository, indexRepository, site.getUrl(), site);
+                lemmaRepository, indexRepository, siteDB.getUrl(), siteDB);
 
         try {
             new ForkJoinPool(Runtime.getRuntime().availableProcessors()).submit(pageService).get();
         } catch (Exception e) {
             e.printStackTrace();
-            site.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            site.setLastError(e.getMessage());
-            site.setStatus(IndexingStatus.FAILED);
+            siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            siteDB.setLastError(e.getMessage());
+            siteDB.setStatus(IndexingStatus.FAILED);
         }
 
-        if (site.getStatus().equals(IndexingStatus.INDEXING)) {
-            site.setStatus(IndexingStatus.INDEXED);
+        if (siteDB.getStatus().equals(IndexingStatus.INDEXING)) {
+            siteDB.setStatus(IndexingStatus.INDEXED);
         }
-        siteRepository.saveAndFlush(site);
+        siteRepository.saveAndFlush(siteDB);
         decrementCountInstances();
     }
 
-    public Site createSiteDB(String siteName, String siteUrl) {
-        site = new Site();
-        site.setName(siteName);
-        site.setUrl(siteUrl);
-        site.setStatus(IndexingStatus.INDEXING);
-        site.setStatusTime(new Timestamp(new Date().getTime()).toString());
-        siteRepository.saveAndFlush(site);
-        return site;
+    public SiteDB createSiteDB(String siteName, String siteUrl) {
+        siteDB = new SiteDB();
+        siteDB.setName(siteName);
+        siteDB.setUrl(siteUrl);
+        siteDB.setStatus(IndexingStatus.INDEXING);
+        siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
+        siteRepository.saveAndFlush(siteDB);
+        return siteDB;
     }
 
     public IndexingData checkingAvailabilitySiteInDB(IndexingData indexingData) {
-        List<Site> siteList = siteRepository.findByUrl(indexingData.getUrl());
-        Site siteCheck;
-        if (siteList.isEmpty()) {
-            siteCheck = createSiteDB(indexingData.getSiteName(), indexingData.getUrl());
-        } else if (siteList.size() > 1) {
+        List<SiteDB> siteDBList = siteRepository.getSiteListByUrl(indexingData.getUrl());
+        SiteDB site;
+        if (siteDBList.size() > 1) {
             indexingData.getIndexingResponse().setResult(false);
             indexingData.getIndexingResponse().setError("В базе данных содержатся сайта с одинаковыми URL");
             return indexingData;
-        } else {
-            siteCheck = siteList.get(0);
-            siteCheck.setStatus(IndexingStatus.INDEXING);
-            siteCheck.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            siteRepository.saveAndFlush(siteCheck);
+        } else if (siteDBList.size() == 1){
+            site = siteDBList.get(0);
+            site.setStatus(IndexingStatus.INDEXING);
+            site.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            siteRepository.saveAndFlush(site);
+            indexingData.setSiteDB(site);
         }
-        indexingData.setSite(siteCheck);
         return indexingData;
     }
 
@@ -86,6 +84,4 @@ public class SiteService extends Thread {
     public static void decrementCountInstances() {
         countInstances--;
     }
-
-
 }

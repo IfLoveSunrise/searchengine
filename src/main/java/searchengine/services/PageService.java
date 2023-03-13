@@ -15,35 +15,35 @@ import org.jsoup.nodes.Element;
 import searchengine.dto.indexing.PageParserData;
 import searchengine.model.IndexingStatus;
 import searchengine.model.Page;
-import searchengine.model.Site;
+import searchengine.model.SiteDB;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 
-public class PageService extends RecursiveTask<Site> {
+public class PageService extends RecursiveTask<SiteDB> {
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final String url;
-    private final Site site;
+    private final SiteDB site;
     private Page page;
     public static boolean running = true;
 
     public PageService(SiteRepository siteRepository, PageRepository pageRepository,
                        LemmaRepository lemmaRepository, IndexRepository indexRepository,
-                       String url, Site site) {
+                       String url, SiteDB siteDB) {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.url = url;
-        this.site = site;
+        this.site = siteDB;
     }
 
     @Override
-    protected Site compute() {
+    protected SiteDB compute() {
         System.out.println(url);
 
         List<PageService> pageServiceList = new CopyOnWriteArrayList<>();

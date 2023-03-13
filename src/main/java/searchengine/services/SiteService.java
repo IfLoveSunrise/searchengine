@@ -2,6 +2,7 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import searchengine.dto.indexing.IndexingData;
 import searchengine.model.IndexingStatus;
 import searchengine.model.Site;
 import searchengine.repositories.IndexRepository;
@@ -11,6 +12,7 @@ import searchengine.repositories.SiteRepository;
 
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.*;
 
 @Service
@@ -52,6 +54,25 @@ public class SiteService extends Thread {
         site.setStatusTime(new Timestamp(new Date().getTime()).toString());
         siteRepository.saveAndFlush(site);
         return site;
+    }
+
+    public IndexingData checkingAvailabilitySiteInDB(IndexingData indexingData) {
+        List<Site> siteList = siteRepository.findByUrl(indexingData.getUrl());
+        Site siteCheck;
+        if (siteList.isEmpty()) {
+            siteCheck = createSiteDB(indexingData.getSiteName(), indexingData.getUrl());
+        } else if (siteList.size() > 1) {
+            indexingData.getIndexingResponse().setResult(false);
+            indexingData.getIndexingResponse().setError("В базе данных содержатся сайта с одинаковыми URL");
+            return indexingData;
+        } else {
+            siteCheck = siteList.get(0);
+            siteCheck.setStatus(IndexingStatus.INDEXING);
+            siteCheck.setStatusTime(new Timestamp(new Date().getTime()).toString());
+            siteRepository.saveAndFlush(site);
+        }
+        indexingData.setSite(siteCheck);
+        return indexingData;
     }
 
     public static int getCountInstances() {

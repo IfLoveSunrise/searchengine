@@ -1,11 +1,12 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
-import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.config.SiteConfig;
 import searchengine.config.SitesList;
+import searchengine.dto.indexing.IndexingData;
 import searchengine.dto.indexing.IndexingResponse;
+import searchengine.dto.indexing.PageParserData;
 import searchengine.model.*;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
@@ -14,9 +15,7 @@ import searchengine.repositories.SiteRepository;
 
 import java.io.IOException;
 import java.sql.Timestamp;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,26 +26,28 @@ public class IndexingServiceImpl implements IndexingService {
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
-    private final IndexingResponse indexingResponse = new IndexingResponse();
     private final SitesList sites;
 
     @Override
     public IndexingResponse startIndexing() {
-        if (SiteService.getCountInstances() > 0) {
-            indexingResponse.setResult(false);
-            indexingResponse.setError("Индексация еще не остановлена, попробуйте позже");
-            return indexingResponse;
-        }
-        PageService.running = true;
-        LemmaService.running = true;
+        IndexingResponse indexingResponse = checkingIndexingRunning();
+        SiteService siteService = new SiteService(siteRepository, pageRepository,
+                lemmaRepository, indexRepository);
+
+        if (!indexingResponse.isResult()) return indexingResponse;
+
         for (SiteConfig siteConfig : sites.getSitesConfigList()) {
             SiteService.incrementCountInstances();
-            Site site = siteRepository.findByUrl(siteConfig.getUrl());
-            if (site != null) {
-                siteRepository.delete(site);
+            IndexingData indexingData = new IndexingData();
+            indexingData.setUrl(siteConfig.getUrl());
+            indexingData = siteService.checkingAvailabilitySiteInDB(indexingData);
+            if (!indexingData.getIndexingResponse().isResult()) {
+                stopIndexing();
+                return indexingResponse;
             }
-            SiteService siteService = new SiteService(siteRepository, pageRepository,
-                    lemmaRepository, indexRepository);
+            if (indexingData.getSite() != null) {
+                siteRepository.delete(indexingData.getSite());
+            }
             siteService.createSiteDB(siteConfig.getName(), siteConfig.getUrl());
             siteService.start();
         }
@@ -58,11 +59,12 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public IndexingResponse stopIndexing() {
 
+        IndexingResponse indexingResponse = new IndexingResponse();
         if (SiteService.getCountInstances() > 0) {
-            indexingResponse.setResult(true);
-            indexingResponse.setError(null);
             PageService.running = false;
             LemmaService.running = false;
+            indexingResponse.setResult(true);
+            indexingResponse.setError(null);
         } else {
             indexingResponse.setResult(false);
             indexingResponse.setError("Индексация не запущена");
@@ -72,33 +74,68 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public IndexingResponse indexPage(String path) {
+        SiteService siteService = new SiteService(siteRepository, pageRepository,
+                lemmaRepository, indexRepository);
+
+        IndexingResponse indexingResponse = checkingIndexingRunning();
+        if (!indexingResponse.isResult()) return indexingResponse;
+        SiteService.incrementCountInstances();
+
+        IndexingData indexingData = checkingCorrectnessPath(path);
+        if (!indexingData.getIndexingResponse().isResult()) return indexingData.getIndexingResponse();
+
+        indexingData = siteService.checkingAvailabilitySiteInDB(indexingData);
+        if (!indexingData.getIndexingResponse().isResult()) return indexingData.getIndexingResponse();
+        Site site = indexingData.getSite();
+
+        indexingData.setPageList(pageRepository.getPagesByPathAndSiteId(path.replaceFirst(site.getUrl(), "/"), site.getId()));
+        indexingData.setPageService(new PageService(siteRepository, pageRepository,
+                lemmaRepository, indexRepository, path, site));
+        indexingData.setLemmaService(new LemmaService(lemmaRepository, indexRepository));
+        indexingData = parseLemmas(indexingData);
+        if (!indexingData.getIndexingResponse().isResult()) return indexingData.getIndexingResponse();
+
+        site.setStatusTime(new Timestamp(new Date().getTime()).toString());
+        site.setStatus(IndexingStatus.INDEXED);
+        siteRepository.saveAndFlush(site);
+        SiteService.decrementCountInstances();
+        indexingResponse.setResult(true);
+        indexingResponse.setError(null);
+        return indexingResponse;
+    }
+
+    public IndexingResponse checkingIndexingRunning () {
+        IndexingResponse indexingResponse = new IndexingResponse();
         if (SiteService.getCountInstances() > 0) {
-            indexingResponse.setResult(true);
+            indexingResponse.setResult(false);
             indexingResponse.setError("Индексация еще не остановлена, попробуйте позже");
             return indexingResponse;
         }
+        indexingResponse.setResult(true);
         PageService.running = true;
         LemmaService.running = true;
-        SiteService.incrementCountInstances();
+        return indexingResponse;
+    }
 
-        LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
+    public IndexingData checkingCorrectnessPath(String path) {
+        IndexingData indexingData = new IndexingData();
+        IndexingResponse indexingResponse = new IndexingResponse(true, null);
 
-        String url;
         Matcher matcher = Pattern.compile("(.+//[^/]+/).*").matcher(path);
         if (matcher.find()) {
-            url = matcher.group(1);
+            indexingData.setUrl(matcher.group(1));
         } else {
             indexingResponse.setResult(false);
             indexingResponse.setError("Адрес страницы указан неверно. Пример: https://example.com/news/");
-            return indexingResponse;
+            indexingData.setIndexingResponse(indexingResponse);
+            return indexingData;
         }
 
         boolean isSiteExist = false;
-        String siteName = "";
         for (SiteConfig siteConfig : sites.getSitesConfigList()) {
-            if (siteConfig.getUrl().equals(url)) {
+            if (siteConfig.getUrl().equals(indexingData.getUrl())) {
                 isSiteExist = true;
-                siteName = siteConfig.getName();
+                indexingData.setSiteName(siteConfig.getName());
             }
         }
 
@@ -106,25 +143,14 @@ public class IndexingServiceImpl implements IndexingService {
             indexingResponse.setResult(false);
             indexingResponse.setError("Данная страница находится за пределами сайтов, " +
                     "указанных в конфигурационном файле");
-            return indexingResponse;
+            indexingData.setIndexingResponse(indexingResponse);
         }
+        return indexingData;
+    }
 
-        Site site = siteRepository.findByUrl(url);
-        if (site == null) {
-            SiteService siteService = new SiteService(siteRepository, pageRepository,
-                    lemmaRepository, indexRepository);
-            site = siteService.createSiteDB(siteName, url);
-        } else {
-            site.setStatus(IndexingStatus.INDEXING);
-            site.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            siteRepository.saveAndFlush(site);
-        }
-
-        List<Page> pageList = pageRepository.getPagesByPathAndSiteId(path.replaceFirst(site.getUrl(), "/"), site.getId());
-        PageService pageService = new PageService(siteRepository, pageRepository,
-                lemmaRepository, indexRepository, path, site);
-        if (!pageList.isEmpty()) {
-            Page page = pageList.get(0);
+    public IndexingData parseLemmas(IndexingData indexingData) {
+        if (!indexingData.getPageList().isEmpty()) {
+            Page page = indexingData.getPageList().get(0);
             List<Integer> lemmaIds = indexRepository.getLemmaIdListByPageId(page.getId());
             for (int lemmaId : lemmaIds) {
                 Optional<Lemma> lemmaOptional = lemmaRepository.findById(lemmaId);
@@ -139,30 +165,25 @@ public class IndexingServiceImpl implements IndexingService {
                     }
                 }
             }
-            pageRepository.delete(pageList.get(0));
+            pageRepository.delete(page);
         }
+        return saveLemmas(indexingData);
+    }
 
-        Document document = pageService.getJsoupDocumentAndSavePage();
-
+    public IndexingData saveLemmas(IndexingData indexingData) {
+        PageParserData pageParserData = indexingData.getPageService().getJsoupDocumentAndSavePage();
         try {
-            lemmaService.lemmaAndIndexSave(lemmaService.getLemmasMap(document.toString()),
-                    site, pageService.getPage());
+            HashMap<String, Integer> lemmasMap = indexingData.getLemmaService().
+                    getLemmasMap(pageParserData.getDocument().toString());
+            indexingData.getLemmaService().lemmaAndIndexSave(lemmasMap, indexingData.getSite(),
+                    pageParserData.getPage());
         } catch (IOException e) {
-            e.printStackTrace();
-            site.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            site.setLastError(e.getMessage());
-            site.setStatus(IndexingStatus.FAILED);
-            indexingResponse.setResult(false);
-            indexingResponse.setError(e.getMessage());
-
+            indexingData.getSite().setStatusTime(new Timestamp(new Date().getTime()).toString());
+            indexingData.getSite().setLastError(e.getMessage());
+            indexingData.getSite().setStatus(IndexingStatus.FAILED);
+            indexingData.getIndexingResponse().setResult(false);
+            indexingData.getIndexingResponse().setError(e.getMessage());
         }
-
-        site.setStatusTime(new Timestamp(new Date().getTime()).toString());
-        site.setStatus(IndexingStatus.INDEXED);
-        siteRepository.saveAndFlush(site);
-        SiteService.decrementCountInstances();
-        indexingResponse.setResult(true);
-        indexingResponse.setError(null);
-        return indexingResponse;
+        return indexingData;
     }
 }

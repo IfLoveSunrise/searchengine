@@ -12,6 +12,7 @@ import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import searchengine.dto.indexing.PageParserData;
 import searchengine.model.IndexingStatus;
 import searchengine.model.Page;
 import searchengine.model.Site;
@@ -59,7 +60,7 @@ public class PageService extends RecursiveTask<Site> {
         }
 
         if (running && !pageTestBoolean.get()) {
-            Document document = getJsoupDocumentAndSavePage();
+            Document document = getJsoupDocumentAndSavePage().getDocument();
             if (document != null) {
                 for (Element element : document.select("a[href]")) {
                     if (!running) {
@@ -88,7 +89,8 @@ public class PageService extends RecursiveTask<Site> {
         return site;
     }
 
-    public Document getJsoupDocumentAndSavePage() {
+    public PageParserData getJsoupDocumentAndSavePage() {
+        PageParserData pageParserData = new PageParserData();
         Document document;
         try {
             Thread.sleep(2000);
@@ -101,18 +103,17 @@ public class PageService extends RecursiveTask<Site> {
                 page.setCode(connection.response().statusCode());
                 page.setContent(document.toString());
                 site.setStatusTime(new Timestamp(new Date().getTime()).toString());
+                pageParserData.setPage(page);
+                pageParserData.setDocument(document);
                 pageRepository.saveAndFlush(page);
                 LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
                 HashMap<String, Integer> lemmaMap = lemmaService.getLemmasMap(document.toString());
                 lemmaService.lemmaAndIndexSave(lemmaMap, site, page);
             }
-
         } catch (Exception e) {
-            document = null;
-            e.printStackTrace();
+            pageParserData.setError(e.getMessage());
         }
-
-        return document;
+        return pageParserData;
     }
 
     public Page getPage() {

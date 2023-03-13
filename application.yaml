@@ -16,7 +16,7 @@ spring:
     show-sql: true
 
 indexing-settings:
-  sitesConfigList:
+  sites:
     - url: https://volochek.life/
       name: volochek.life
     - url: https://dombulgakova.ru/

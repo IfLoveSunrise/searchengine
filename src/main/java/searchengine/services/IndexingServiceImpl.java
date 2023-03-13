@@ -33,7 +33,7 @@ public class IndexingServiceImpl implements IndexingService {
         IndexingResponse indexingResponse = checkingIndexingRunning();
         if (!indexingResponse.isResult()) return indexingResponse;
 
-        for (SiteConfig siteConfig : sites.getSitesConfigList()) {
+        for (SiteConfig siteConfig : sites.getSites()) {
             SiteService.incrementCountInstances();
             IndexingData indexingData = new IndexingData();
             indexingData.setIndexingResponse(indexingResponse);
@@ -88,7 +88,8 @@ public class IndexingServiceImpl implements IndexingService {
         if (!indexingData.getIndexingResponse().isResult()) return indexingData.getIndexingResponse();
         Site site = indexingData.getSite();
 
-        indexingData.setPageList(pageRepository.getPagesByPathAndSiteId(path.replaceFirst(site.getUrl(), "/"), site.getId()));
+        indexingData.setPageList(pageRepository.getPagesByPathAndSiteId(path.replaceFirst(site.getUrl(), "/"),
+                site.getId()));
         indexingData.setPageService(new PageService(siteRepository, pageRepository,
                 lemmaRepository, indexRepository, path, site));
         indexingData.setLemmaService(new LemmaService(lemmaRepository, indexRepository));
@@ -104,6 +105,7 @@ public class IndexingServiceImpl implements IndexingService {
 
     public IndexingResponse checkingIndexingRunning () {
         IndexingResponse indexingResponse = new IndexingResponse();
+        indexingResponse.setResult(true);
         if (SiteService.getCountInstances() > 0) {
             indexingResponse.setResult(false);
             indexingResponse.setError("Индексация еще не остановлена, попробуйте позже");
@@ -130,7 +132,7 @@ public class IndexingServiceImpl implements IndexingService {
         }
 
         boolean isSiteExist = false;
-        for (SiteConfig siteConfig : sites.getSitesConfigList()) {
+        for (SiteConfig siteConfig : sites.getSites()) {
             if (siteConfig.getUrl().equals(indexingData.getUrl())) {
                 isSiteExist = true;
                 indexingData.setSiteName(siteConfig.getName());

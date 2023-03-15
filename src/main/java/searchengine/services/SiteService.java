@@ -61,9 +61,9 @@ public class SiteService extends Thread {
         SiteDB site;
         if (siteDBList.size() > 1) {
             indexingData.getIndexingResponse().setResult(false);
-            indexingData.getIndexingResponse().setError("В базе данных содержатся сайта с одинаковыми URL");
+            indexingData.getIndexingResponse().setError("В базе данных содержатся сайты с одинаковыми URL");
             return indexingData;
-        } else if (siteDBList.size() == 1){
+        } else if (siteDBList.size() == 1) {
             site = siteDBList.get(0);
             site.setStatus(IndexingStatus.INDEXING);
             site.setStatusTime(new Timestamp(new Date().getTime()).toString());

@@ -1,18 +1,19 @@
 package searchengine.model;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+
 import javax.persistence.*;
 
 @Data
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name="`index`")
+@Table(name = "`index`")
 public class Index {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;

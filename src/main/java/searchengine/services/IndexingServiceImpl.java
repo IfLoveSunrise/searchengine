@@ -16,6 +16,7 @@ import searchengine.repositories.SiteRepository;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -107,7 +108,7 @@ public class IndexingServiceImpl implements IndexingService {
         return indexingResponse;
     }
 
-    public IndexingResponse checkingIndexingRunning () {
+    public IndexingResponse checkingIndexingRunning() {
         IndexingResponse indexingResponse = new IndexingResponse();
         indexingResponse.setResult(true);
         if (SiteService.getCountInstances() > 0) {
@@ -116,6 +117,7 @@ public class IndexingServiceImpl implements IndexingService {
             return indexingResponse;
         }
         indexingResponse.setResult(true);
+        PageService.linkSet = new CopyOnWriteArraySet<>();
         PageService.running = true;
         LemmaService.running = true;
         return indexingResponse;

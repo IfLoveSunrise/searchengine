@@ -1,4 +1,5 @@
 package searchengine.model;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,7 +13,7 @@ import java.util.List;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name="page")
+@Table(name = "page")
 public class Page {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,15 +34,4 @@ public class Page {
 
     @OneToMany(mappedBy = "page", cascade = CascadeType.ALL)
     private List<Index> indexList;
-
-    @Override
-    public String toString() {
-        return "Page{" + System.lineSeparator() +
-                "id=" + id + System.lineSeparator() +
-                ", site=" + site + System.lineSeparator() +
-                ", path='" + path + '\'' + System.lineSeparator() +
-                ", code=" + code + System.lineSeparator() +
-                ", content='" +'\'' + System.lineSeparator() +
-                '}';
-    }
 }

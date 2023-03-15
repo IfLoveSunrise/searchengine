@@ -6,6 +6,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Connection;
@@ -26,6 +27,7 @@ public class PageService extends RecursiveTask<SiteDB> {
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
+    public static Set<String> linkSet = new CopyOnWriteArraySet<>();
     private final String url;
     private final SiteDB site;
     private Page page;
@@ -44,13 +46,9 @@ public class PageService extends RecursiveTask<SiteDB> {
 
     @Override
     protected SiteDB compute() {
-        System.out.println(url);
-
+        linkSet.add(url);
         List<PageService> pageServiceList = new CopyOnWriteArrayList<>();
-        Set<String> linkSet = new CopyOnWriteArraySet<>();
-
         if (!running) stopIndexing();
-
         String path = url.replaceFirst(site.getUrl(), "/");
         AtomicBoolean pageTestBoolean = new AtomicBoolean(false);
         for (Page pageTest : pageRepository.getPagesByPath(path)) {
@@ -58,7 +56,6 @@ public class PageService extends RecursiveTask<SiteDB> {
                 pageTestBoolean.set(true);
             }
         }
-
         if (running && !pageTestBoolean.get()) {
             Document document = getJsoupDocumentAndSavePage().getDocument();
             if (document != null) {
@@ -67,8 +64,9 @@ public class PageService extends RecursiveTask<SiteDB> {
                         break;
                     }
                     String link = element.absUrl("href");
-                    int pointCount = StringUtils.countMatches(link.replace(url, ""), ".");
-                    if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount == 0
+                    AtomicInteger pointCount = new AtomicInteger(
+                            StringUtils.countMatches(link.replace(url, ""), "."));
+                    if (!link.isEmpty() && link.startsWith(url) && !link.contains("#") && pointCount.get() == 0
                             && running && !link.equals(url) && !linkSet.contains(link)) {
                         linkSet.add(link);
                         PageService pageService = new PageService(siteRepository, pageRepository,
@@ -78,11 +76,8 @@ public class PageService extends RecursiveTask<SiteDB> {
                     }
                 }
             }
-
             for (PageService link : pageServiceList) {
-                if (!running) {
-                    break;
-                }
+                if (!running) break;
                 link.join();
             }
         }
@@ -91,6 +86,7 @@ public class PageService extends RecursiveTask<SiteDB> {
 
     public PageParserData getJsoupDocumentAndSavePage() {
         PageParserData pageParserData = new PageParserData();
+        if (url.replaceFirst(site.getUrl(), "").startsWith("?")) return pageParserData;
         Document document;
         try {
             Thread.sleep(2000);
@@ -116,14 +112,14 @@ public class PageService extends RecursiveTask<SiteDB> {
         return pageParserData;
     }
 
-    public Page getPage() {
-        return page;
-    }
-
     public void stopIndexing() {
         site.setStatusTime(new Timestamp(new Date().getTime()).toString());
         site.setLastError("Индексация остановлена пользователем");
         site.setStatus(IndexingStatus.FAILED);
         siteRepository.saveAndFlush(site);
+    }
+
+    public Page getPage() {
+        return page;
     }
 }

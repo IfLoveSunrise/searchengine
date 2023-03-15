@@ -1,4 +1,5 @@
 package searchengine.model;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,7 +11,7 @@ import java.util.List;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name="site")
+@Table(name = "site")
 public class SiteDB {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,16 +31,4 @@ public class SiteDB {
     private List<Page> pages;
     @OneToMany(mappedBy = "site", cascade = CascadeType.ALL)
     private List<Lemma> lemmas;
-
-    @Override
-    public String toString() {
-        return "SiteDB{" +
-                "id=" + id +
-                ", status=" + status +
-                ", statusTime='" + statusTime + '\'' +
-                ", lastError='" + lastError + '\'' +
-                ", url='" + url + '\'' +
-                ", name='" + name + '\'' +
-                '}';
-    }
 }

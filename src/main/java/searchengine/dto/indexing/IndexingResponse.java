@@ -8,8 +8,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class IndexingResponse {
-
     private boolean result;
     private String error;
-
 }

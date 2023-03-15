@@ -3,6 +3,7 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
+import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
 import searchengine.model.Index;
 import searchengine.model.Lemma;
@@ -15,7 +16,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +28,9 @@ public class LemmaService {
         HashMap<String, Integer> lemmasMap = new HashMap<>();
         LuceneMorphology luceneMorph = new RussianLuceneMorphology();
 
-        String[] words = text.replaceAll("[^А-яЁё]+", " ").trim()
+        String clearedText = clearHtmlFromTags(text);
+
+        String[] words = clearedText.replaceAll("[^А-яЁё]+", " ")
                 .toLowerCase(Locale.ROOT).split("\\s+");
 
         for (String word : words) {
@@ -59,37 +61,34 @@ public class LemmaService {
     }
 
     public void lemmaAndIndexSave(HashMap<String, Integer> lemmaMap, SiteDB siteDB, Page page) {
-        Lemma lemma;
+
         for (String lemmaString : lemmaMap.keySet()) {
             if (!running) {
                 break;
             }
-            List<Lemma> oldLemmaList = lemmaRepository.getLemmaListByLemmaAndSiteID(lemmaString, siteDB.getId());
-            if (oldLemmaList.isEmpty()) {
+            Lemma lemma = lemmaRepository.getLemmaByLemmaAndSiteID(lemmaString, siteDB.getId());
+            if (lemma == null) {
                 lemma = new Lemma();
                 lemma.setSite(siteDB);
                 lemma.setLemma(lemmaString);
                 lemma.setFrequency(1);
-                lemmaRepository.saveAndFlush(lemma);
-                Index index = new Index();
-                index.setPage(page);
-                index.setLemma(lemma);
-                index.setRank(lemmaMap.get(lemmaString));
-                indexRepository.saveAndFlush(index);
-            } else if (oldLemmaList.size() == 1) {
-                lemma = oldLemmaList.get(0);
-                lemma.setFrequency(lemma.getFrequency() + 1);
-                lemmaRepository.saveAndFlush(lemma);
             } else {
-                lemma = oldLemmaList.get(0);
-                AtomicInteger frequency = new AtomicInteger();
-                oldLemmaList.forEach(lemmaCopy -> frequency.addAndGet(lemmaCopy.getFrequency()));
-                for (int i = 1; i < oldLemmaList.size(); i++) {
-                    lemmaRepository.delete(oldLemmaList.get(i));
-                }
-                lemma.setFrequency(frequency.addAndGet(1));
-                lemmaRepository.saveAndFlush(lemma);
+                lemma.setFrequency(lemma.getFrequency() + 1);
             }
+            lemmaRepository.saveAndFlush(lemma);
+            indexSave(page, lemma, lemmaMap.get(lemmaString));
         }
+    }
+
+    public void indexSave(Page page, Lemma lemma, float rank) {
+        Index index = new Index();
+        index.setPage(page);
+        index.setLemma(lemma);
+        index.setRank(rank);
+        indexRepository.saveAndFlush(index);
+    }
+
+    public String clearHtmlFromTags(String text) {
+        return Jsoup.parse(text).text();
     }
 }

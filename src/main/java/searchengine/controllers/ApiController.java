@@ -14,7 +14,6 @@ import searchengine.services.StatisticsService;
 @AllArgsConstructor
 @RequestMapping("/api")
 public class ApiController {
-
     private final StatisticsService statisticsService;
     private final IndexingService indexingService;
     private final SearchService searchService;
@@ -35,7 +34,7 @@ public class ApiController {
     }
 
     @PostMapping("/indexPage")
-    public ResponseEntity<IndexingResponse> indexPage(@RequestParam(name="url") String path) {
+    public ResponseEntity<IndexingResponse> indexPage(@RequestParam(name = "url") String path) {
         return ResponseEntity.ok(indexingService.indexPage(path));
     }
 
@@ -48,6 +47,4 @@ public class ApiController {
     ) {
         return ResponseEntity.ok(searchService.search(query, site, offset, limit));
     }
-
-
 }

@@ -7,8 +7,6 @@ import searchengine.model.Page;
 @Data
 public class PageParserData {
     private Page page;
-
     private Document document;
-
     private String error;
 }

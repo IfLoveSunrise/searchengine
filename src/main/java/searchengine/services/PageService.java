@@ -116,7 +116,7 @@ public class PageService extends RecursiveTask<SiteDB> {
                 pageParserData.setDocument(document);
                 pageRepository.saveAndFlush(page);
                 siteRepository.saveAndFlush(site);
-                LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
+                LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository, pageRepository);
                 HashMap<String, Integer> lemmaMap = lemmaService.getLemmasMap(
                         document != null ? document.toString() : null);
                 lemmaService.lemmaAndIndexSave(lemmaMap, site, page);

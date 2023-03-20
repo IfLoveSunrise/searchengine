@@ -43,8 +43,7 @@ public class ApiController {
             @RequestParam(value = "query") String query,
             @RequestParam(value = "site", required = false) String site,
             @RequestParam(value = "offset", required = false) Integer offset,
-            @RequestParam(value = "limit", required = false) Integer limit
-    ) {
+            @RequestParam(value = "limit", required = false) Integer limit) {
         return ResponseEntity.ok(searchService.search(query, site, offset, limit));
     }
 }

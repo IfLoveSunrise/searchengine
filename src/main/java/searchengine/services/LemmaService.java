@@ -7,17 +7,21 @@ import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
+import searchengine.dto.indexing.IndexingData;
+import searchengine.dto.indexing.PageParserData;
 import searchengine.model.Index;
 import searchengine.model.Lemma;
 import searchengine.model.Page;
 import searchengine.model.SiteDB;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +29,7 @@ public class LemmaService {
     private static final Logger LOGGER = LogManager.getLogger(LemmaService.class);
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
+    private final PageRepository pageRepository;
     public static boolean running = true;
 
     public HashMap<String, Integer> getLemmasMap(String text) {
@@ -97,6 +102,31 @@ public class LemmaService {
         index.setLemma(lemma);
         index.setRank(rank);
         indexRepository.saveAndFlush(index);
+    }
+
+    public IndexingData parseLemmas(IndexingData indexingData) {
+        if (!indexingData.getPageList().isEmpty()) {
+            Page page = indexingData.getPageList().get(0);
+            List<Integer> lemmaIds = indexRepository.getLemmaIdListByPageId(page.getId());
+            for (int lemmaId : lemmaIds) {
+                Optional<Lemma> lemmaOptional = lemmaRepository.findById(lemmaId);
+                if (lemmaOptional.isPresent()) {
+                    Lemma lemma = lemmaOptional.get();
+                    int frequency = lemma.getFrequency() - 1;
+                    if (frequency == 0) {
+                        lemmaRepository.delete(lemma);
+                    } else {
+                        lemma.setFrequency(frequency);
+                        lemmaRepository.saveAndFlush(lemma);
+                    }
+                }
+            }
+            pageRepository.delete(page);
+        }
+        PageParserData pageParserData = indexingData.getPageService().getJsoupDocumentAndSavePage();
+        HashMap<String, Integer> lemmasMap = getLemmasMap(pageParserData.getDocument().toString());
+        lemmaAndIndexSave(lemmasMap, indexingData.getSiteDB(), pageParserData.getPage());
+        return indexingData;
     }
 
     public String clearHtmlFromTags(String text) {

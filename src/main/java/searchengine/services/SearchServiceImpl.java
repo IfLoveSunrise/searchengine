@@ -42,7 +42,7 @@ public class SearchServiceImpl implements SearchService {
                 .concat("; URL: ").concat(url == null ? "All sites" : url)
                 .concat("; Offset: ").concat(String.valueOf(offset))
                 .concat("; Limit: ").concat(String.valueOf(limit)));
-        lemmaService = new LemmaService(lemmaRepository, indexRepository);
+        lemmaService = new LemmaService(lemmaRepository, indexRepository, pageRepository);
         if (query.equals("")) {
             SearchResponse searchResponse = new SearchResponse();
             searchResponse.setResult(false);

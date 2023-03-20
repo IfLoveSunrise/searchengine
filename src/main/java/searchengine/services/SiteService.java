@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
-import searchengine.dto.indexing.IndexingData;
 import searchengine.model.IndexingStatus;
 import searchengine.model.SiteDB;
 import searchengine.repositories.IndexRepository;
@@ -14,7 +13,6 @@ import searchengine.repositories.SiteRepository;
 
 import java.sql.Timestamp;
 import java.util.Date;
-import java.util.List;
 import java.util.concurrent.*;
 
 @Service
@@ -26,7 +24,6 @@ public class SiteService extends Thread {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private SiteDB siteDB;
-    private static int countInstances = 0;
 
     @Override
     public void run() {
@@ -48,7 +45,7 @@ public class SiteService extends Thread {
             siteDB.setStatus(IndexingStatus.INDEXED);
         }
         siteRepository.saveAndFlush(siteDB);
-        decrementCountInstances();
+        IndexingServiceImpl.decrementCountInstances();
     }
 
     public SiteDB createSiteDB(String siteName, String siteUrl) {
@@ -59,35 +56,5 @@ public class SiteService extends Thread {
         siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
         siteRepository.saveAndFlush(siteDB);
         return siteDB;
-    }
-
-    public IndexingData checkingAvailabilitySiteInDB(IndexingData indexingData) {
-        List<SiteDB> siteDBList = siteRepository.getSiteListByUrl(indexingData.getUrl());
-        SiteDB site;
-        if (siteDBList.size() > 1) {
-            indexingData.getIndexingResponse().setResult(false);
-            indexingData.getIndexingResponse().setError("В базе данных содержатся сайты с одинаковыми URL");
-            LOGGER.error("Дублирование адресов в БД: " + indexingData.getUrl());
-            return indexingData;
-        } else if (siteDBList.size() == 1) {
-            site = siteDBList.get(0);
-            site.setStatus(IndexingStatus.INDEXING);
-            site.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            siteRepository.saveAndFlush(site);
-            indexingData.setSiteDB(site);
-        }
-        return indexingData;
-    }
-
-    public static int getCountInstances() {
-        return countInstances;
-    }
-
-    public static void incrementCountInstances() {
-        countInstances++;
-    }
-
-    public static void decrementCountInstances() {
-        countInstances--;
     }
 }

@@ -1,6 +1,10 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
@@ -13,7 +17,6 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 
-import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -23,6 +26,8 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
+    private static final Logger LOGGER = LogManager.getLogger(IndexingServiceImpl.class);
+    private static final Marker INVALID_DATA_MARKER = MarkerManager.getMarker("INVALID_DATA_MARKER");
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
@@ -63,14 +68,14 @@ public class IndexingServiceImpl implements IndexingService {
     public IndexingResponse stopIndexing() {
         IndexingResponse indexingResponse = new IndexingResponse();
         if (SiteService.getCountInstances() > 0) {
-            PageService.running = false;
-            LemmaService.running = false;
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
         } else {
             indexingResponse.setResult(true);
             indexingResponse.setError("Индексация не запущена");
         }
+        PageService.running = false;
+        LemmaService.running = false;
         return indexingResponse;
     }
 
@@ -134,6 +139,7 @@ public class IndexingServiceImpl implements IndexingService {
             indexingData.getIndexingResponse().setResult(false);
             indexingData.getIndexingResponse().setError("Адрес страницы указан неверно. " +
                     "Пример: https://example.com/news/");
+            LOGGER.info(INVALID_DATA_MARKER, "Недопустимый адрес: " + path);
             return indexingData;
         }
 
@@ -149,6 +155,7 @@ public class IndexingServiceImpl implements IndexingService {
             indexingData.getIndexingResponse().setResult(false);
             indexingData.getIndexingResponse().setError("Данная страница находится за пределами сайтов, " +
                     "указанных в конфигурационном файле");
+            LOGGER.info(INVALID_DATA_MARKER, "Адрес отсутствует в конфигурации: " + path);
         }
         return indexingData;
     }
@@ -177,18 +184,10 @@ public class IndexingServiceImpl implements IndexingService {
 
     public IndexingData saveLemmas(IndexingData indexingData) {
         PageParserData pageParserData = indexingData.getPageService().getJsoupDocumentAndSavePage();
-        try {
-            HashMap<String, Integer> lemmasMap = indexingData.getLemmaService().
-                    getLemmasMap(pageParserData.getDocument().toString());
-            indexingData.getLemmaService().lemmaAndIndexSave(lemmasMap, indexingData.getSiteDB(),
-                    pageParserData.getPage());
-        } catch (IOException e) {
-            indexingData.getSiteDB().setStatusTime(new Timestamp(new Date().getTime()).toString());
-            indexingData.getSiteDB().setLastError(e.getMessage());
-            indexingData.getSiteDB().setStatus(IndexingStatus.FAILED);
-            indexingData.getIndexingResponse().setResult(false);
-            indexingData.getIndexingResponse().setError(e.getMessage());
-        }
+        HashMap<String, Integer> lemmasMap = indexingData.getLemmaService().
+                getLemmasMap(pageParserData.getDocument().toString());
+        indexingData.getLemmaService().lemmaAndIndexSave(lemmasMap, indexingData.getSiteDB(),
+                pageParserData.getPage());
         return indexingData;
     }
 }

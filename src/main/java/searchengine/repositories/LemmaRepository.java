@@ -11,7 +11,7 @@ import java.util.List;
 public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
 
     @Query(value = "SELECT * FROM lemma WHERE `lemma` = :lemma AND site_id = :siteId", nativeQuery = true)
-    Lemma getLemmaByLemmaAndSiteID(String lemma, int siteId);
+    List<Lemma> getLemmasByLemmaAndSiteID(String lemma, int siteId);
 
     @Query(value = "SELECT id FROM lemma " +
             "WHERE `lemma` IN :lemmaString", nativeQuery = true)
@@ -27,7 +27,7 @@ public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
             "AND `site_id` IN :siteIds " +
             "AND `frequency` < :restriction " +
             "ORDER BY `frequency`", nativeQuery = true)
-    List<Lemma> getLemmasByLemmaAndSiteID(List<Integer> lemmaIds, List<Integer> siteIds, int restriction);
+    List<Lemma> getLemmasByLemmaAndSiteIDWithRestriction(List<Integer> lemmaIds, List<Integer> siteIds, int restriction);
 
     @Query(value = "SELECT COUNT(*) FROM lemma WHERE site_id = :siteId", nativeQuery = true)
     int countLemmasBySiteId(int siteId);

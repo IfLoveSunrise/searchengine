@@ -1,6 +1,8 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Jsoup;
@@ -20,13 +22,19 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class LemmaService {
+    private static final Logger LOGGER = LogManager.getLogger(LemmaService.class);
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     public static boolean running = true;
 
-    public HashMap<String, Integer> getLemmasMap(String text) throws IOException {
+    public HashMap<String, Integer> getLemmasMap(String text) {
         HashMap<String, Integer> lemmasMap = new HashMap<>();
-        LuceneMorphology luceneMorph = new RussianLuceneMorphology();
+        LuceneMorphology luceneMorph = null;
+        try {
+            luceneMorph = new RussianLuceneMorphology();
+        } catch (IOException e) {
+            LOGGER.error("Ошибка подключения к RussianLuceneMorphology: " + e.getMessage());
+        }
 
         String clearedText = clearHtmlFromTags(text);
 
@@ -38,7 +46,7 @@ public class LemmaService {
                 break;
             }
             word = word.replaceAll("ё", "е");
-            if (isNecessaryWord(word, luceneMorph)) {
+            if (luceneMorph != null && isNecessaryWord(word, luceneMorph)) {
                 List<String> lemmaList = luceneMorph.getNormalForms(word);
                 for (String lemma : lemmaList) {
                     lemmasMap.put(lemma, lemmasMap.containsKey(lemma) ? lemmasMap.get(lemma) + 1 : 1);
@@ -61,18 +69,21 @@ public class LemmaService {
     }
 
     public void lemmaAndIndexSave(HashMap<String, Integer> lemmaMap, SiteDB siteDB, Page page) {
-
         for (String lemmaString : lemmaMap.keySet()) {
-            if (!running) {
-                break;
-            }
-            Lemma lemma = lemmaRepository.getLemmaByLemmaAndSiteID(lemmaString, siteDB.getId());
-            if (lemma == null) {
+            if (!running) break;
+            List<Lemma> lemmaList = lemmaRepository.getLemmasByLemmaAndSiteID(lemmaString, siteDB.getId());
+            Lemma lemma;
+            if (lemmaList.isEmpty()) {
                 lemma = new Lemma();
                 lemma.setSite(siteDB);
                 lemma.setLemma(lemmaString);
                 lemma.setFrequency(1);
+            } else if (lemmaList.size() == 1) {
+                lemma = lemmaList.get(0);
+                lemma.setFrequency(lemma.getFrequency() + 1);
             } else {
+                LOGGER.error("Дублированные леммы: ".concat(lemmaString));
+                lemma = lemmaList.get(0);
                 lemma.setFrequency(lemma.getFrequency() + 1);
             }
             lemmaRepository.saveAndFlush(lemma);

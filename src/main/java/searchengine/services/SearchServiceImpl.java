@@ -1,6 +1,10 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
 import searchengine.config.SitesList;
@@ -14,7 +18,6 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,6 +26,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
+    private static final Logger LOGGER = LogManager.getLogger(SearchServiceImpl.class);
+    private static final Marker INPUT_HISTORY_MARKER = MarkerManager.getMarker("INPUT_HISTORY_MARKER");
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
@@ -31,6 +36,12 @@ public class SearchServiceImpl implements SearchService {
     private final SitesList sites;
 
     public SearchResponse search(String query, String url, int offset, int limit) {
+        PageService.running = true;
+        LemmaService.running = true;
+        LOGGER.info(INPUT_HISTORY_MARKER, "Query: ".concat(query.equals("") ? "Empty" : query)
+                .concat("; URL: ").concat(url == null ? "All sites" : url)
+                .concat("; Offset: ").concat(String.valueOf(offset))
+                .concat("; Limit: ").concat(String.valueOf(limit)));
         lemmaService = new LemmaService(lemmaRepository, indexRepository);
         if (query.equals("")) {
             SearchResponse searchResponse = new SearchResponse();
@@ -84,15 +95,10 @@ public class SearchServiceImpl implements SearchService {
     }
 
     public List<Lemma> getLemmaIdsByQuery(String query, String url, int indexRestriction) {
-        HashMap<String, Integer> queryLemmaMap;
-        try {
-            queryLemmaMap = lemmaService.getLemmasMap(query);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        HashMap<String, Integer> queryLemmaMap = lemmaService.getLemmasMap(query);
         List<String> lemmaListQuery = new ArrayList<>(queryLemmaMap.keySet());
         List<Integer> lemmaIds = lemmaRepository.getLemmaIdsByLemmaStringList(lemmaListQuery);
-        return lemmaRepository.getLemmasByLemmaAndSiteID(lemmaIds, getSiteIds(url), indexRestriction);
+        return lemmaRepository.getLemmasByLemmaAndSiteIDWithRestriction(lemmaIds, getSiteIds(url), indexRestriction);
     }
 
     public Map<String, Integer> sortingLemmas(List<Lemma> lemmaList) {

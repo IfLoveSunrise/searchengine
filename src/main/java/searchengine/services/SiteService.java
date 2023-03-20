@@ -1,6 +1,8 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import searchengine.dto.indexing.IndexingData;
 import searchengine.model.IndexingStatus;
@@ -18,6 +20,7 @@ import java.util.concurrent.*;
 @Service
 @RequiredArgsConstructor
 public class SiteService extends Thread {
+    private static final Logger LOGGER = LogManager.getLogger(SiteService.class);
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
@@ -34,8 +37,10 @@ public class SiteService extends Thread {
             new ForkJoinPool(Runtime.getRuntime().availableProcessors()).submit(pageService).get();
         } catch (Exception e) {
             e.printStackTrace();
+            LOGGER.error("Ошибка индексации сайта: ".concat(siteDB.getUrl())
+                    .concat(System.lineSeparator()).concat(e.getMessage()));
             siteDB.setStatusTime(new Timestamp(new Date().getTime()).toString());
-            siteDB.setLastError(e.getMessage());
+            siteDB.setLastError("Ошибка индексации сайта");
             siteDB.setStatus(IndexingStatus.FAILED);
         }
 
@@ -62,6 +67,7 @@ public class SiteService extends Thread {
         if (siteDBList.size() > 1) {
             indexingData.getIndexingResponse().setResult(false);
             indexingData.getIndexingResponse().setError("В базе данных содержатся сайты с одинаковыми URL");
+            LOGGER.error("Дублирование адресов в БД: " + indexingData.getUrl());
             return indexingData;
         } else if (siteDBList.size() == 1) {
             site = siteDBList.get(0);

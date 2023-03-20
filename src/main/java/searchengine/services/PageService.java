@@ -1,5 +1,6 @@
 package searchengine.services;
 
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -9,6 +10,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -23,6 +26,7 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 
 public class PageService extends RecursiveTask<SiteDB> {
+    private static final Logger LOGGER = LogManager.getLogger(PageService.class);
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
@@ -87,28 +91,36 @@ public class PageService extends RecursiveTask<SiteDB> {
     public PageParserData getJsoupDocumentAndSavePage() {
         PageParserData pageParserData = new PageParserData();
         if (url.replaceFirst(site.getUrl(), "").startsWith("?")) return pageParserData;
-        Document document;
         try {
-            Thread.sleep(2000);
-            Connection connection = Jsoup.connect(url).ignoreHttpErrors(true).ignoreContentType(true);
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            LOGGER.error("Поток прерван: " + Thread.currentThread().getName() + " - " + url);
+            pageParserData.setError(e.getMessage());
+        }
+        Connection connection = Jsoup.connect(url).ignoreHttpErrors(true).ignoreContentType(true);
+        Document document = null;
+        try {
             document = connection.get();
-            if (connection.response().statusCode() == 200) {
+        } catch (IOException e) {
+            LOGGER.error("Ошибка подключения: " + url + " - " + e.getMessage());
+            pageParserData.setError(e.getMessage());
+        }
+        if (connection.response().statusCode() == 200) {
                 page = new Page();
                 page.setSite(site);
                 page.setPath(url.replaceFirst(site.getUrl(), "/"));
                 page.setCode(connection.response().statusCode());
-                page.setContent(document.toString());
+                page.setContent(document != null ? document.toString() : null);
                 site.setStatusTime(new Timestamp(new Date().getTime()).toString());
                 pageParserData.setPage(page);
                 pageParserData.setDocument(document);
                 pageRepository.saveAndFlush(page);
+                siteRepository.saveAndFlush(site);
                 LemmaService lemmaService = new LemmaService(lemmaRepository, indexRepository);
-                HashMap<String, Integer> lemmaMap = lemmaService.getLemmasMap(document.toString());
+                HashMap<String, Integer> lemmaMap = lemmaService.getLemmasMap(
+                        document != null ? document.toString() : null);
                 lemmaService.lemmaAndIndexSave(lemmaMap, site, page);
             }
-        } catch (Exception e) {
-            pageParserData.setError(e.getMessage());
-        }
         return pageParserData;
     }
 
